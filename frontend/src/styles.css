@@ -1,0 +1,38 @@
+a, 
+button:not([disabled]), 
+input[type="button"]:not([disabled]), 
+input[type="submit"]:not([disabled]), 
+input[type="reset"]:not([disabled]), 
+label[for],
+select:not([disabled]),
+textarea:not([disabled]) {
+  cursor: pointer;
+}
+
+[role="button"],
+[onclick],
+.btn,
+.button,
+.link,
+.clickable,
+.nav-link,
+.dropdown-toggle,
+.dropdown-item {
+  cursor: pointer;
+}
+
+button svg, .btn svg {
+  pointer-events: none;
+}
+
+[role="button"]:hover,
+[onclick]:hover,
+.clickable:hover,
+.link:hover {
+  cursor: pointer;
+}
+
+[disabled],
+.disabled {
+  cursor: default !important;
+}

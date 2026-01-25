@@ -1,0 +1,3 @@
+STATUS_IN_STOCK = "In Stock"
+STATUS_DEPLOYED = "Deployed"
+STATUS_RETIRED = "Retired"
