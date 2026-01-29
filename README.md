@@ -19,22 +19,36 @@ tabs on what is in stock, what is deployed, and who has it.
 - Backend: FastAPI, SQLite, JWT auth
 - Frontend: React, Vite
 
-## Setup (Windows)
+## Setup
 
-1. Install dependencies
+### Windows
 
-```
-install-deps.bat
-```
-
-2. Start dev servers (backend at `http://127.0.0.1:8000`, frontend at `http://localhost:5173`)
+Start dev servers (backend at `http://127.0.0.1:8000`, frontend at `http://localhost:5173`)
 
 ```
 start-dev.bat
 ```
 
-3. Production-like preview (builds the frontend and runs the API + Vite preview)
+Production-like preview (builds the frontend and runs the API + Vite preview)
 
 ```
 start-prod.bat
+```
+
+### Linux
+
+```bash
+chmod +x start-dev.sh start-prod.sh
+```
+
+Start dev servers (backend at `http://127.0.0.1:8000`, frontend at `http://localhost:5173`)
+
+```bash
+./start-dev.sh
+```
+
+Production-like preview (builds the frontend and runs the API + Vite preview)
+
+```bash
+./start-prod.sh
 ```
