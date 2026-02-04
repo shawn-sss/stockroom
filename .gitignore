@@ -1,14 +1,38 @@
-backend/app.db
-backend/.venv/
-__pycache__/
-*.py[cod]
-frontend/node_modules/
-frontend/dist/
+# OS: macOS
+.DS_Store
+
+# OS: Windows
+Thumbs.db
+Desktop.ini
+
+# OS: Linux
+*~
+*.swp
+*.swo
+*.tmp
+
+# Env
 .env
 .env.*
+
+# Backend: Python
+backend/.venv/
+backend/app.db
+backend/**/__pycache__/
+backend/**/*.py[cod]
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.python-version
+
+# Frontend: Node
+frontend/node_modules/
+frontend/dist/
+
+# Logs
 *.log
+
+# IDE
 .vscode/
 *.code-workspace
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+.idea/
