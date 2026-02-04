@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { predefinedCategories } from "../../constants/catalog.js";
 import {
   capitalizeFirst,
   formatDate,
@@ -64,6 +63,10 @@ export default function InventoryView({
     endIndex,
     pagedItems,
     uniqueCategories,
+    uniqueStatuses,
+    formCategoryOptions,
+    formMakeOptionsByCategory,
+    formModelOptionsByCategoryMake,
     categoryCounts,
     selectedHistory,
     editHasChanges,
@@ -163,6 +166,7 @@ export default function InventoryView({
         .meta-stack { display: grid; gap: 4px; margin-top: 4px; }
         .meta-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
         .meta-line { font-size: 11px; line-height: 1.2; }
+        .item-card, .meta-line, .muted { overflow-wrap: anywhere; word-break: break-word; }
 
         .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
         .modal-header { align-items: flex-start; }
@@ -301,11 +305,11 @@ export default function InventoryView({
           display: flex;
           align-items: flex-start;
           justify-content: center;
-          padding: 48px 16px;
+          padding: clamp(16px, 4vw, 48px);
           z-index: 20;
         }
         .modal {
-          width: min(900px, 100%);
+          width: min(900px, calc(100vw - 24px));
           background: rgba(17,26,46,0.95);
           border: 1px solid var(--border);
           border-radius: 18px;
@@ -367,20 +371,40 @@ export default function InventoryView({
           display: block;
           fill: var(--text);
         }
-        @media (max-width: 720px) {
+        @media (max-width: 1100px) {
+          .layout { grid-template-columns: 300px 1fr; }
+          .category-count-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 860px) {
           .topbar { flex-direction: column; align-items: stretch; }
           .actions { justify-content: flex-start; }
+          .layout { grid-template-columns: 1fr; }
+          .side-stack { position: static; }
+          .filter-row { flex-direction: column; align-items: stretch; }
+          .filter-row > label { width: 100%; }
+        }
+        @media (max-width: 720px) {
           .actions button { width: 100%; }
           .title { font-size: 24px; }
           .row { flex-wrap: wrap; }
-          .filter-row { flex-direction: column; align-items: stretch; }
-          .filter-row > label { width: 100%; }
-          .category-count-grid { grid-template-columns: 1fr; }
           .pager-row { flex-direction: column; align-items: stretch; gap: 10px; }
           .pager { width: 100%; justify-content: space-between; flex-wrap: wrap; }
           .pager-text { align-self: flex-start; }
-          .modal-backdrop { padding: 24px 12px; }
           .modal { padding: 12px; max-height: calc(100vh - 48px); border-radius: 14px; }
+        }
+        @media (max-width: 520px) {
+          .panel { padding: 12px; border-radius: 14px; }
+          .title { font-size: 22px; }
+          .subtitle { font-size: 12px; }
+          .filter-toggle { padding: 4px 6px; }
+          .pager { gap: 6px; }
+          .pager .pager-select { min-width: 80px; }
+        }
+        @media (max-width: 420px) {
+          .actions button { width: 100%; }
+          .item-card { padding: 10px; }
+          input:not([type="checkbox"]), textarea, select { padding: 9px 10px; }
+          button { padding: 9px 10px; }
         }
       `}</style>
       <div className="topbar">
@@ -553,9 +577,17 @@ export default function InventoryView({
                 className="filter-select"
               >
                 <option value="all">All</option>
-                <option value={STATUS_IN_STOCK}>In Stock</option>
-                <option value={STATUS_DEPLOYED}>Deployed</option>
-                <option value={STATUS_RETIRED}>Retired</option>
+                {uniqueStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status === STATUS_IN_STOCK
+                      ? "In Stock"
+                      : status === STATUS_DEPLOYED
+                      ? "Deployed"
+                      : status === STATUS_RETIRED
+                      ? "Retired"
+                      : status}
+                  </option>
+                ))}
               </select>
             </label>
           </div>
@@ -628,6 +660,7 @@ export default function InventoryView({
                     </button>
                   </div>
                   <div className="muted">Service tag: {item.service_tag}</div>
+                  {item.row ? <div className="muted">Row: {item.row}</div> : null}
                   <div className="meta-stack">
                     <div className="muted meta-line">Created: {formatDate(item.created_at)}</div>
                     <div className="meta-row">
@@ -809,7 +842,9 @@ export default function InventoryView({
                     setForm={setEditForm}
                     useDropdowns={useEditDropdowns}
                     setUseDropdowns={setUseEditDropdowns}
-                    predefinedCategories={predefinedCategories}
+                    categoryOptions={formCategoryOptions}
+                    makeOptionsByCategory={formMakeOptionsByCategory}
+                    modelOptionsByCategoryMake={formModelOptionsByCategoryMake}
                     capitalizeFirst={capitalizeFirst}
                     disabled={!editUnlocked}
                   />
@@ -886,7 +921,9 @@ export default function InventoryView({
         setAddForm={setAddForm}
         useDropdowns={useDropdowns}
         setUseDropdowns={setUseDropdowns}
-        predefinedCategories={predefinedCategories}
+        categoryOptions={formCategoryOptions}
+        makeOptionsByCategory={formMakeOptionsByCategory}
+        modelOptionsByCategoryMake={formModelOptionsByCategoryMake}
         capitalizeFirst={capitalizeFirst}
         busy={busy}
       />

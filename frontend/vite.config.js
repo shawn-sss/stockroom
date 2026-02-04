@@ -7,6 +7,14 @@ export default defineConfig({
   },
   plugins: [react()],
   server: {
+    host: "localhost",
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      host: process.env.HMR_HOST || "localhost",
+      port: Number(process.env.HMR_PORT || 5173),
+      clientPort: Number(process.env.HMR_PORT || 5173),
+    },
     proxy: {
       "/api": {
         target: "http://localhost:8000",

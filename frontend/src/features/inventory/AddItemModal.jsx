@@ -9,7 +9,9 @@ export default function AddItemModal({
   setAddForm,
   useDropdowns,
   setUseDropdowns,
-  predefinedCategories,
+  categoryOptions,
+  makeOptionsByCategory,
+  modelOptionsByCategoryMake,
   capitalizeFirst,
   busy,
 }) {
@@ -37,7 +39,9 @@ export default function AddItemModal({
           setForm={setAddForm}
           useDropdowns={useDropdowns}
           setUseDropdowns={setUseDropdowns}
-          predefinedCategories={predefinedCategories}
+          categoryOptions={categoryOptions}
+          makeOptionsByCategory={makeOptionsByCategory}
+          modelOptionsByCategoryMake={modelOptionsByCategoryMake}
           capitalizeFirst={capitalizeFirst}
           required
         />
@@ -48,4 +52,3 @@ export default function AddItemModal({
     </Modal>
   );
 }
-

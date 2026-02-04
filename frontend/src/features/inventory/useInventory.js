@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, getApiErrorMessage } from "../../api/client.js";
 import {
-  getPredefinedMakes,
-  getPredefinedModels,
-  predefinedCategories,
-} from "../../constants/catalog.js";
-import {
   capitalizeWords,
   formatDate,
   getSortableTime,
@@ -28,6 +23,7 @@ const emptyItemForm = {
   make: "",
   model: "",
   serviceTag: "",
+  row: "",
   note: "",
 };
 const initialAddForm = { ...emptyItemForm };
@@ -140,20 +136,83 @@ export default function useInventory({
 
   const uniqueCategories = useMemo(() => {
     const categories = new Set();
+    allItems.forEach((item) => {
+      const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
+      if (rawCategory) {
+        categories.add(rawCategory);
+      }
+    });
+    return [...categories].sort((a, b) => a.localeCompare(b));
+  }, [allItems]);
+
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set();
+    allItems.forEach((item) => {
+      if (item.status) {
+        statuses.add(item.status);
+      }
+    });
+    return [...statuses].sort((a, b) => a.localeCompare(b));
+  }, [allItems]);
+
+  const formCategoryOptions = useMemo(() => {
+    const categories = new Set();
     items.forEach((item) => {
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       if (rawCategory) {
         categories.add(rawCategory);
       }
     });
-    const ordered = [];
-    predefinedCategories.forEach((category) => {
-      if (categories.has(category)) {
-        ordered.push(category);
-        categories.delete(category);
+    return [...categories].sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
+  const formMakeOptionsByCategory = useMemo(() => {
+    const map = new Map();
+    items.forEach((item) => {
+      const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
+      const rawMake = typeof item.make === "string" ? item.make.trim() : "";
+      if (!rawCategory || !rawMake) {
+        return;
       }
+      if (!map.has(rawCategory)) {
+        map.set(rawCategory, new Set());
+      }
+      map.get(rawCategory).add(rawMake);
     });
-    return [...ordered, ...[...categories].sort((a, b) => a.localeCompare(b))];
+    const result = {};
+    map.forEach((makes, category) => {
+      result[category] = [...makes].sort((a, b) => a.localeCompare(b));
+    });
+    return result;
+  }, [items]);
+
+  const formModelOptionsByCategoryMake = useMemo(() => {
+    const map = new Map();
+    items.forEach((item) => {
+      const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
+      const rawMake = typeof item.make === "string" ? item.make.trim() : "";
+      const rawModel = typeof item.model === "string" ? item.model.trim() : "";
+      if (!rawCategory || !rawMake || !rawModel) {
+        return;
+      }
+      if (!map.has(rawCategory)) {
+        map.set(rawCategory, new Map());
+      }
+      const makesMap = map.get(rawCategory);
+      if (!makesMap.has(rawMake)) {
+        makesMap.set(rawMake, new Set());
+      }
+      makesMap.get(rawMake).add(rawModel);
+    });
+    const result = {};
+    map.forEach((makesMap, category) => {
+      const makesResult = {};
+      makesMap.forEach((models, make) => {
+        makesResult[make] = [...models].sort((a, b) => a.localeCompare(b));
+      });
+      result[category] = makesResult;
+    });
+    return result;
   }, [items]);
 
   useEffect(() => {
@@ -174,12 +233,7 @@ export default function useInventory({
     }
     const validSortFields = new Set(["created", "updated"]);
     const validSortDirections = new Set(["asc", "desc"]);
-    const validStatuses = new Set([
-      DEFAULT_FILTER_STATUS,
-      STATUS_IN_STOCK,
-      STATUS_DEPLOYED,
-      STATUS_RETIRED,
-    ]);
+    const validStatuses = new Set([DEFAULT_FILTER_STATUS, ...uniqueStatuses]);
     const validPageSizes = new Set([10, 20, 50, 100, 200, 0]);
     const validCategories = new Set([DEFAULT_FILTER_CATEGORY, ...uniqueCategories]);
     const nextSortField = validSortFields.has(prefs.sortField)
@@ -203,7 +257,7 @@ export default function useInventory({
     setFilterCategory(nextFilterCategory);
     setPageSize(nextPageSize);
     prefsLoadedForUser.current = username;
-  }, [username, uniqueCategories]);
+  }, [username, uniqueCategories, uniqueStatuses]);
 
   useEffect(() => {
     if (!username) {
@@ -240,22 +294,15 @@ export default function useInventory({
       };
       counts.set(category, next);
     });
-    const ordered = [];
-    const remaining = new Map(counts);
-    predefinedCategories.forEach((category) => {
-      if (remaining.has(category)) {
-        ordered.push([category, remaining.get(category)]);
-        remaining.delete(category);
-      }
-    });
-    const tail = [...remaining.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    return [...ordered, ...tail].map(([category, summary]) => ({
+    return [...counts.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([category, summary]) => ({
       category,
       count: summary.count,
       inStock: summary.inStock,
       deployed: summary.deployed,
       retired: summary.retired,
-    }));
+      }));
   }, [allItems]);
 
   useEffect(() => {
@@ -302,13 +349,18 @@ export default function useInventory({
       make: data.item.make,
       model: data.item.model,
       serviceTag: data.item.service_tag,
+      row: data.item.row ?? "",
       note: "",
     });
     setEditUnlocked(false);
+    const categoryOptions = formCategoryOptions;
+    const makeOptions = formMakeOptionsByCategory[data.item.category] || [];
+    const modelOptions =
+      (formModelOptionsByCategoryMake[data.item.category] || {})[data.item.make] || [];
     setUseEditDropdowns({
-      category: predefinedCategories.includes(data.item.category),
-      make: getPredefinedMakes(data.item.category).includes(data.item.make),
-      model: getPredefinedModels(data.item.category, data.item.make).includes(data.item.model),
+      category: categoryOptions.includes(data.item.category),
+      make: makeOptions.includes(data.item.make),
+      model: modelOptions.includes(data.item.model),
     });
     return data.item;
   };
@@ -349,9 +401,10 @@ export default function useInventory({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             category: capitalizeWords(addForm.category),
-            make: capitalizeWords(addForm.make),
-            model: capitalizeWords(addForm.model),
+            make: addForm.make,
+            model: addForm.model,
             service_tag: addForm.serviceTag,
+            row: addForm.row || null,
             note: addForm.note || null,
           }),
         },
@@ -391,9 +444,10 @@ export default function useInventory({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             category: capitalizeWords(editForm.category),
-            make: capitalizeWords(editForm.make),
-            model: capitalizeWords(editForm.model),
+            make: editForm.make,
+            model: editForm.model,
             service_tag: editForm.serviceTag,
+            row: editForm.row || null,
             note: editForm.note || null,
           }),
         },
@@ -520,6 +574,7 @@ export default function useInventory({
       make: "Make",
       model: "Model",
       service_tag: "Service tag",
+      row: "Row",
       status: "Status",
       assigned_user: "Assigned user",
     };
@@ -558,7 +613,8 @@ export default function useInventory({
       editForm.category !== selectedItem.category ||
       editForm.make !== selectedItem.make ||
       editForm.model !== selectedItem.model ||
-      editForm.serviceTag !== selectedItem.service_tag;
+      editForm.serviceTag !== selectedItem.service_tag ||
+      editForm.row !== (selectedItem.row ?? "");
     const hasNote = Boolean(editForm.note && editForm.note.trim());
     return hasItemChanges || hasNote;
   }, [editForm, selectedItem]);
@@ -644,6 +700,10 @@ export default function useInventory({
       endIndex,
       pagedItems,
       uniqueCategories,
+      uniqueStatuses,
+      formCategoryOptions,
+      formMakeOptionsByCategory,
+      formModelOptionsByCategoryMake,
       categoryCounts,
       selectedHistory,
       editHasChanges,

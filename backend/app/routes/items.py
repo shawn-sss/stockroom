@@ -25,9 +25,9 @@ def list_items(
         like_q = f"%{q}%"
         base_query += (
             " WHERE category LIKE ? OR make LIKE ? OR model LIKE ?"
-            " OR service_tag LIKE ? OR assigned_user LIKE ?"
+            " OR service_tag LIKE ? OR row LIKE ? OR assigned_user LIKE ?"
         )
-        params.extend([like_q, like_q, like_q, like_q, like_q])
+        params.extend([like_q, like_q, like_q, like_q, like_q, like_q])
     base_query += " ORDER BY id DESC"
     rows = conn.execute(base_query, params).fetchall()
     return {"items": [row_to_item(row) for row in rows]}
@@ -41,20 +41,22 @@ def add_item(
 ):
     created_at = now_iso()
     category = title_case_words(require_nonempty(payload.category, "category"))
-    make = title_case_words(require_nonempty(payload.make, "make"))
-    model = title_case_words(require_nonempty(payload.model, "model"))
+    make = require_nonempty(payload.make, "make")
+    model = require_nonempty(payload.model, "model")
     service_tag = require_nonempty(payload.service_tag, "service_tag")
+    row = payload.row.strip() if payload.row else None
     cur = conn.execute(
         """
         INSERT INTO items (
-            category, make, model, service_tag, status, assigned_user, created_at, created_by, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            category, make, model, service_tag, row, status, assigned_user, created_at, created_by, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             category,
             make,
             model,
             service_tag,
+            row,
             STATUS_IN_STOCK,
             None,
             created_at,
@@ -68,6 +70,7 @@ def add_item(
         "make": {"old": None, "new": make},
         "model": {"old": None, "new": model},
         "service_tag": {"old": None, "new": service_tag},
+        "row": {"old": None, "new": row},
         "status": {"old": None, "new": STATUS_IN_STOCK},
         "assigned_user": {"old": None, "new": None},
     }
@@ -123,12 +126,17 @@ def update_item(
     if not row:
         raise HTTPException(status_code=404, detail="Item not found")
     updates: Dict[str, str] = {}
-    for field in ["category", "make", "model", "service_tag"]:
+    for field in ["category", "make", "model", "service_tag", "row"]:
         value = getattr(payload, field)
         if value is not None:
-            normalized = require_nonempty(value, field)
-            if field in ("category", "make", "model"):
+            if field == "row":
+                normalized = value.strip()
+            else:
+                normalized = require_nonempty(value, field)
+            if field == "category":
                 normalized = title_case_words(normalized)
+            if field == "row" and normalized == "":
+                normalized = None
             updates[field] = normalized
     changes: Dict[str, Dict[str, Any]] = {}
     for field, new_value in updates.items():

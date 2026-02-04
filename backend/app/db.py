@@ -40,6 +40,7 @@ def init_db():
             make TEXT NOT NULL,
             model TEXT NOT NULL,
             service_tag TEXT NOT NULL,
+            row TEXT,
             status TEXT NOT NULL,
             assigned_user TEXT,
             created_at TEXT NOT NULL,

@@ -8,6 +8,7 @@ class ItemCreate(BaseModel):
     make: str = Field(..., min_length=1)
     model: str = Field(..., min_length=1)
     service_tag: str = Field(..., min_length=1)
+    row: Optional[str] = None
     note: Optional[str] = None
 
 
@@ -16,6 +17,7 @@ class ItemUpdate(BaseModel):
     make: Optional[str] = None
     model: Optional[str] = None
     service_tag: Optional[str] = None
+    row: Optional[str] = None
     note: Optional[str] = None
 
 
@@ -40,4 +42,3 @@ class UserRoleUpdate(BaseModel):
 
 class UserPasswordReset(BaseModel):
     new_password: str = Field(..., min_length=1)
-

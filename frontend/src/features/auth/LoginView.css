@@ -131,3 +131,7 @@ body.login-view .toast-stack .error {
   body.login-view .panel { padding: 16px; border-radius: 14px; }
   body.login-view .toast-stack { right: 12px; left: 12px; }
 }
+@media (max-width: 380px) {
+  body.login-view .panel { padding: 12px; }
+  body.login-view .title { font-size: 22px; }
+}
