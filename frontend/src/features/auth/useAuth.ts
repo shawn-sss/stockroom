@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { apiRequest } from "../../api/client.js";
+import { useEffect, useState, type FormEvent } from "react";
+import { apiRequest } from "../../api/client";
 
 export default function useAuth({ setError }) {
   const [token, setToken] = useState(localStorage.getItem("token"));
@@ -14,7 +14,7 @@ export default function useAuth({ setError }) {
     setRole("user");
   };
 
-  const loadSession = async (activeToken) => {
+  const loadSession = async (activeToken: string) => {
     setLoading(true);
     setError("");
     try {
@@ -25,9 +25,9 @@ export default function useAuth({ setError }) {
       const meData = await meRes.json();
       setUsername(meData.username);
       setRole(meData.role);
-    } catch (err) {
+    } catch (err: unknown) {
       clearSession();
-      setError(err.message);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -39,14 +39,20 @@ export default function useAuth({ setError }) {
     }
   }, [token]);
 
-  const loginWithCredentials = async (usernameValue, passwordValue, options = {}) => {
+  const loginWithCredentials = async (
+    usernameValue: FormDataEntryValue | null,
+    passwordValue: FormDataEntryValue | null,
+    options: { suppressError?: boolean } = {}
+  ) => {
     const { suppressError = false } = options;
     if (!suppressError) {
       setError("");
     }
+    const asText = (value: FormDataEntryValue | null) =>
+      typeof value === "string" ? value : "";
     const body = new URLSearchParams({
-      username: usernameValue || "",
-      password: passwordValue || "",
+      username: asText(usernameValue),
+      password: asText(passwordValue),
     });
     const res = await apiRequest(
       "/token",
@@ -70,7 +76,7 @@ export default function useAuth({ setError }) {
     return { ok: true };
   };
 
-  const handleLogin = async (event) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const usernameValue = form.get("username");
@@ -92,3 +98,5 @@ export default function useAuth({ setError }) {
     handleLogout,
   };
 }
+  const getErrorMessage = (error: unknown) =>
+    error instanceof Error && error.message ? error.message : "Session expired";

@@ -1,6 +1,11 @@
 export const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
-export function getApiErrorMessage(data, fallback) {
+type ApiRequestOptions = RequestInit & { skipAuthEvent?: boolean };
+
+type ApiErrorEntry = { msg?: unknown };
+type ApiErrorPayload = { detail?: unknown } | null | undefined;
+
+export function getApiErrorMessage(data: ApiErrorPayload, fallback: string) {
   if (!data) {
     return fallback;
   }
@@ -10,7 +15,10 @@ export function getApiErrorMessage(data, fallback) {
   }
   if (Array.isArray(detail)) {
     const messages = detail
-      .map((entry) => (entry && entry.msg ? String(entry.msg) : ""))
+      .map((entry) => {
+        const candidate = entry as ApiErrorEntry | null;
+        return candidate && candidate.msg ? String(candidate.msg) : "";
+      })
       .filter(Boolean);
     if (messages.length > 0) {
       return messages.join(", ");
@@ -26,7 +34,7 @@ export function getApiErrorMessage(data, fallback) {
   return fallback;
 }
 
-export async function apiRequest(path, options = {}, token) {
+export async function apiRequest(path: string, options: ApiRequestOptions = {}, token?: string | null) {
   const { skipAuthEvent, ...fetchOptions } = options;
   const headers = new Headers(fetchOptions.headers || {});
   if (token) {

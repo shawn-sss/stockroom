@@ -11,7 +11,7 @@ export default function ItemFormFields({
   capitalizeFirst,
   required = false,
   disabled = false,
-  placeholders = {},
+  placeholders = {} as Record<string, string>,
 }) {
   const {
     category = "Laptop / Desktop / Monitor / Dock / Part",
@@ -126,6 +126,7 @@ export default function ItemFormFields({
         </div>
         {useDropdowns.category ? (
           <select
+            name="category"
             value={categoryValue}
             onChange={(event) =>
               setForm({ ...form, category: capitalizeFirst(event.target.value) })
@@ -140,6 +141,7 @@ export default function ItemFormFields({
           </select>
         ) : (
           <input
+            name="category"
             placeholder={category}
             value={form.category ?? ""}
             onChange={(event) =>
@@ -169,6 +171,7 @@ export default function ItemFormFields({
         </div>
         {useDropdowns.make ? (
           <select
+            name="make"
             value={makeValue}
             onChange={(event) =>
               setForm({ ...form, make: event.target.value })
@@ -183,6 +186,7 @@ export default function ItemFormFields({
           </select>
         ) : (
           <input
+            name="make"
             placeholder={make}
             value={form.make ?? ""}
             onChange={(event) =>
@@ -213,6 +217,7 @@ export default function ItemFormFields({
         </div>
         {useDropdowns.model ? (
           <select
+            name="model"
             value={modelValue}
             onChange={(event) =>
               setForm({ ...form, model: event.target.value })
@@ -227,6 +232,7 @@ export default function ItemFormFields({
           </select>
         ) : (
           <input
+            name="model"
             placeholder={model}
             value={form.model ?? ""}
             onChange={(event) =>
@@ -258,6 +264,7 @@ export default function ItemFormFields({
           ) : null}
         </div>
         <input
+          name="serviceTag"
           placeholder={serviceTag}
           value={form.serviceTag ?? ""}
           onChange={(event) =>
@@ -273,6 +280,7 @@ export default function ItemFormFields({
           <span>Row (optional)</span>
         </div>
         <input
+          name="row"
           placeholder={row}
           value={rowValue}
           onChange={(event) =>
@@ -285,6 +293,7 @@ export default function ItemFormFields({
       <label>
         Note (optional)
         <input
+          name="note"
           placeholder={note}
           value={form.note ?? ""}
           onChange={(event) =>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { apiRequest, getApiErrorMessage } from "../../api/client.js";
+import { apiRequest, getApiErrorMessage } from "../../api/client";
 
 const initialUserForm = { username: "", password: "", role: "user" };
 const initialResetForm = { username: "", newPassword: "" };

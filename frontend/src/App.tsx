@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import LoginView from "./features/auth/LoginView.jsx";
-import SessionExpiredModal from "./features/auth/SessionExpiredModal.jsx";
-import InventoryView from "./features/inventory/InventoryView.jsx";
-import UserManagementModal from "./features/users/UserManagementModal.jsx";
-import useAuth from "./features/auth/useAuth.js";
-import useInventory from "./features/inventory/useInventory.js";
-import useUserManagement from "./features/users/useUserManagement.js";
-import { formatDate } from "./utils/formatters.js";
+import LoginView from "./features/auth/LoginView";
+import SessionExpiredModal from "./features/auth/SessionExpiredModal";
+import InventoryView from "./features/inventory/InventoryView";
+import UserManagementModal from "./features/users/UserManagementModal";
+import useAuth from "./features/auth/useAuth";
+import useInventory from "./features/inventory/useInventory";
+import useUserManagement from "./features/users/useUserManagement";
+import { formatDate } from "./utils/formatters";
 import {
   DEFAULT_FILTER_CATEGORY,
   DEFAULT_FILTER_STATUS,
   DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_FIELD,
-} from "./constants/inventory.js";
+} from "./constants/inventory";
 
 const ALLOWED_USER_VIEWS = new Set(["view", "create", "reset-password", "logs"]);
 const normalizeUserValue = (value) => (value ? String(value).trim().toLowerCase() : "");

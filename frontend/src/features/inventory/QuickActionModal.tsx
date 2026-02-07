@@ -1,5 +1,5 @@
-import Modal from "../../components/Modal.jsx";
-import { STATUS_DEPLOYED } from "../../constants/status.js";
+import Modal from "../../components/Modal";
+import { STATUS_DEPLOYED } from "../../constants/status";
 
 export default function QuickActionModal({
   quickActionItem,
@@ -40,6 +40,7 @@ export default function QuickActionModal({
           <label>
             Assigned user (required)
             <input
+              name="assignedUser"
               placeholder="Who is this going to?"
               value={quickActionForm.assignedUser}
               onChange={(event) =>
@@ -52,6 +53,7 @@ export default function QuickActionModal({
         <label>
           Note (optional)
           <input
+            name="quickActionNote"
             placeholder={
               quickActionItem.status === STATUS_DEPLOYED
                 ? "Any notes about the return (optional)"

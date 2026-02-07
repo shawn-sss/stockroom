@@ -1,5 +1,5 @@
-import Modal from "../../components/Modal.jsx";
-import { getSortableTime } from "../../utils/formatters.js";
+import Modal from "../../components/Modal";
+import { getSortableTime } from "../../utils/formatters";
 
 export default function UserManagementModal({
   isOpen,
@@ -131,6 +131,7 @@ export default function UserManagementModal({
                           {isOwner && editingUserRole.userId === u.id ? (
                             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                               <select
+                                name="editingRole"
                                 value={editingUserRole.newRole}
                                 onChange={(event) => setEditingUserRole({ ...editingUserRole, newRole: event.target.value })}
                                 style={{ padding: "6px 10px", fontSize: "13px" }}
@@ -195,6 +196,7 @@ export default function UserManagementModal({
                   <label>
                     Username
                     <input
+                      name="createUsername"
                       value={userForm.username}
                       onChange={(event) => setUserForm({ ...userForm, username: event.target.value })}
                       required
@@ -203,6 +205,7 @@ export default function UserManagementModal({
                   <label>
                     Password
                     <input
+                      name="createPassword"
                       type="password"
                       value={userForm.password}
                       onChange={(event) => setUserForm({ ...userForm, password: event.target.value })}
@@ -213,6 +216,7 @@ export default function UserManagementModal({
                     <label>
                       Role
                       <select
+                        name="createRole"
                         value={userForm.role}
                         onChange={(event) => setUserForm({ ...userForm, role: event.target.value })}
                       >
@@ -240,6 +244,7 @@ export default function UserManagementModal({
                   <label>
                     Username
                     <select
+                      name="resetUsername"
                       value={resetPasswordForm.username}
                       onChange={(event) => setResetPasswordForm({ ...resetPasswordForm, username: event.target.value })}
                       required
@@ -259,6 +264,7 @@ export default function UserManagementModal({
                   <label>
                     New Password
                     <input
+                      name="resetPassword"
                       type="password"
                       value={resetPasswordForm.newPassword}
                       onChange={(event) => setResetPasswordForm({ ...resetPasswordForm, newPassword: event.target.value })}

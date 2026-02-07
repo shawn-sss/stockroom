@@ -1,5 +1,5 @@
-import ItemFormFields from "./ItemFormFields.jsx";
-import Modal from "../../components/Modal.jsx";
+import ItemFormFields from "./ItemFormFields";
+import Modal from "../../components/Modal";
 
 export default function AddItemModal({
   isOpen,

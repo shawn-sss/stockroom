@@ -2,16 +2,16 @@ import { useMemo } from "react";
 import {
   capitalizeFirst,
   formatDate,
-} from "../../utils/formatters.js";
+} from "../../utils/formatters";
 import {
   STATUS_DEPLOYED,
   STATUS_IN_STOCK,
   STATUS_RETIRED,
-} from "../../constants/status.js";
-import AddItemModal from "./AddItemModal.jsx";
-import ItemFormFields from "./ItemFormFields.jsx";
-import QuickActionModal from "./QuickActionModal.jsx";
-import RetireItemModal from "./RetireItemModal.jsx";
+} from "../../constants/status";
+import AddItemModal from "./AddItemModal";
+import ItemFormFields from "./ItemFormFields";
+import QuickActionModal from "./QuickActionModal";
+import RetireItemModal from "./RetireItemModal";
 
 export default function InventoryView({
   username,
@@ -465,6 +465,7 @@ export default function InventoryView({
             <form onSubmit={handleSearchSubmit} className="form-grid">
               <label className="form-grid">
                 <input
+                  name="inventorySearch"
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -538,6 +539,7 @@ export default function InventoryView({
                 </button>
               </div>
               <select
+                name="sortField"
                 value={sortField}
                 onChange={(e) => setSortField(e.target.value)}
                 className="filter-select"
@@ -562,6 +564,7 @@ export default function InventoryView({
                 </button>
               </div>
               <select
+                name="filterCategory"
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
                 className="filter-select"
@@ -588,6 +591,7 @@ export default function InventoryView({
                 </button>
               </div>
               <select
+                name="filterStatus"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 className="filter-select"
@@ -696,6 +700,7 @@ export default function InventoryView({
             <div className="pager">
               <div className="pager-label">Per page</div>
               <select
+                name="pageSize"
                 value={pageSize === 0 ? "all" : String(pageSize)}
                 onChange={(event) => {
                   const value = event.target.value;

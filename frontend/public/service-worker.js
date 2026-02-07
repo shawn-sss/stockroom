@@ -44,6 +44,13 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) {
     return;
   }
+  if (
+    url.pathname.startsWith("/@vite/") ||
+    url.pathname.startsWith("/src/") ||
+    url.pathname.startsWith("/node_modules/")
+  ) {
+    return;
+  }
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(request));
     return;
@@ -66,7 +73,7 @@ self.addEventListener("fetch", (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
             return response;
           })
-          .catch(() => cached)
+          .catch(() => cached || Response.error())
     )
   );
 });

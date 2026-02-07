@@ -1,4 +1,12 @@
-import { useRef } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
+
+type ModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  contentClassName?: string;
+  contentStyle?: CSSProperties;
+};
 
 export default function Modal({
   isOpen,
@@ -6,7 +14,7 @@ export default function Modal({
   children,
   contentClassName = "modal",
   contentStyle,
-}) {
+}: ModalProps) {
   const backdropMouseDown = useRef(false);
 
   if (!isOpen) {

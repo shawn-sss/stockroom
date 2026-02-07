@@ -17,38 +17,37 @@ tabs on what is in stock, what is deployed, and who has it.
 ## Tech stack
 
 - Backend: FastAPI, SQLite, JWT auth
-- Frontend: React, Vite
+- Frontend: React, Vite, TypeScript
 
 ## Setup
 
-### Windows
+All helper scripts under `scripts/` are cross-platform and orchestrate both backend and frontend tasks (Node.js and Python 3 are required on your PATH).
 
-Start dev servers (backend at `http://127.0.0.1:8000`, frontend at `http://localhost:5173`)
+### Bootstrap dependencies
 
-```
-start-dev.bat
-```
-
-Production-like preview (builds the frontend and runs the API + Vite preview)
-
-```
-start-prod.bat
-```
-
-### Linux
+Installs the backend virtualenv (and Python dependencies) plus all frontend npm packages.
 
 ```bash
-chmod +x start-dev.sh start-prod.sh
+node scripts/bootstrap.js
 ```
 
-Start dev servers (backend at `http://127.0.0.1:8000`, frontend at `http://localhost:5173`)
+### Development
+
+Runs the backend (Uvicorn with reload) and the frontend dev server concurrently, killing any prior services bound to ports 8000/5173 first.
 
 ```bash
-./start-dev.sh
+node scripts/run-dev.js
 ```
 
-Production-like preview (builds the frontend and runs the API + Vite preview)
+Addresses:
+
+- Backend: http://127.0.0.1:8000
+- Frontend: http://localhost:5173
+
+### Production-style preview
+
+Builds the frontend with `VITE_API_BASE` pointing at the backend, then opens the backend/preview servers side-by-side.
 
 ```bash
-./start-prod.sh
+node scripts/run-prod.js
 ```

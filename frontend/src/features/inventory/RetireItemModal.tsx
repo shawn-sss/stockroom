@@ -1,5 +1,5 @@
-import Modal from "../../components/Modal.jsx";
-import { STATUS_RETIRED } from "../../constants/status.js";
+import Modal from "../../components/Modal";
+import { STATUS_RETIRED } from "../../constants/status";
 
 export default function RetireItemModal({
   item,
@@ -38,6 +38,7 @@ export default function RetireItemModal({
         <label>
           Note (optional)
           <input
+            name="retireNote"
             placeholder={notePlaceholder}
             value={form.note}
             onChange={(event) => setForm({ ...form, note: event.target.value })}

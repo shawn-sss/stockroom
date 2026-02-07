@@ -1,22 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { apiRequest, getApiErrorMessage } from "../../api/client.js";
+import { apiRequest, getApiErrorMessage } from "../../api/client";
 import {
   capitalizeWords,
   formatDate,
   getSortableTime,
-} from "../../utils/formatters.js";
+} from "../../utils/formatters";
 import {
   STATUS_DEPLOYED,
   STATUS_IN_STOCK,
   STATUS_RETIRED,
-} from "../../constants/status.js";
+} from "../../constants/status";
 import {
   DEFAULT_FILTER_CATEGORY,
   DEFAULT_FILTER_STATUS,
   DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_FIELD,
-} from "../../constants/inventory.js";
+} from "../../constants/inventory";
 
 const emptyItemForm = {
   category: "",
@@ -30,6 +30,13 @@ const createItemForm = () => ({ ...emptyItemForm });
 const createQuickActionForm = () => ({ assignedUser: "", note: "" });
 const createDropdownState = () => ({ category: true, make: true, model: true });
 const createRetireForm = () => ({ note: "" });
+type InventoryPreferences = {
+  sortField: string;
+  sortDirection: string;
+  filterStatus: string;
+  filterCategory: string;
+  pageSize: number;
+};
 
 const hasRequiredItemFields = (form) =>
   Boolean(
@@ -166,7 +173,7 @@ export default function useInventory({
   }, [page, pageSize, totalPages]);
 
   const uniqueCategories = useMemo(() => {
-    const categories = new Set();
+    const categories = new Set<string>();
     allItems.forEach((item) => {
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       if (rawCategory) {
@@ -177,7 +184,7 @@ export default function useInventory({
   }, [allItems]);
 
   const uniqueStatuses = useMemo(() => {
-    const statuses = new Set();
+    const statuses = new Set<string>();
     allItems.forEach((item) => {
       if (item.status) {
         statuses.add(item.status);
@@ -187,7 +194,7 @@ export default function useInventory({
   }, [allItems]);
 
   const formCategoryOptions = useMemo(() => {
-    const categories = new Set();
+    const categories = new Set<string>();
     allItems.forEach((item) => {
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       if (rawCategory) {
@@ -198,7 +205,7 @@ export default function useInventory({
   }, [allItems]);
 
   const formMakeOptionsByCategory = useMemo(() => {
-    const map = new Map();
+    const map = new Map<string, Set<string>>();
     allItems.forEach((item) => {
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       const rawMake = typeof item.make === "string" ? item.make.trim() : "";
@@ -210,7 +217,7 @@ export default function useInventory({
       }
       map.get(rawCategory).add(rawMake);
     });
-    const result = {};
+    const result: Record<string, string[]> = {};
     map.forEach((makes, category) => {
       result[category] = [...makes].sort((a, b) => a.localeCompare(b));
     });
@@ -218,7 +225,7 @@ export default function useInventory({
   }, [allItems]);
 
   const formModelOptionsByCategoryMake = useMemo(() => {
-    const map = new Map();
+    const map = new Map<string, Map<string, Set<string>>>();
     allItems.forEach((item) => {
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       const rawMake = typeof item.make === "string" ? item.make.trim() : "";
@@ -235,9 +242,9 @@ export default function useInventory({
       }
       makesMap.get(rawMake).add(rawModel);
     });
-    const result = {};
+    const result: Record<string, Record<string, string[]>> = {};
     map.forEach((makesMap, category) => {
-      const makesResult = {};
+      const makesResult: Record<string, string[]> = {};
       makesMap.forEach((models, make) => {
         makesResult[make] = [...models].sort((a, b) => a.localeCompare(b));
       });
@@ -255,18 +262,18 @@ export default function useInventory({
       return;
     }
     const storageKey = `stockroom:inventory-preferences:${username}`;
-    let prefs = {};
+    let prefs: Partial<InventoryPreferences> = {};
     try {
       const raw = localStorage.getItem(storageKey);
       prefs = raw ? JSON.parse(raw) : {};
     } catch (err) {
       prefs = {};
     }
-    const validSortFields = new Set(["created", "updated"]);
-    const validSortDirections = new Set(["asc", "desc"]);
-    const validStatuses = new Set([DEFAULT_FILTER_STATUS, ...uniqueStatuses]);
-    const validPageSizes = new Set([10, 20, 50, 100, 200, 0]);
-    const validCategories = new Set([DEFAULT_FILTER_CATEGORY, ...uniqueCategories]);
+    const validSortFields = new Set<string>(["created", "updated"]);
+    const validSortDirections = new Set<string>(["asc", "desc"]);
+    const validStatuses = new Set<string>([DEFAULT_FILTER_STATUS, ...uniqueStatuses]);
+    const validPageSizes = new Set<number>([10, 20, 50, 100, 200, 0]);
+    const validCategories = new Set<string>([DEFAULT_FILTER_CATEGORY, ...uniqueCategories]);
     const nextSortField = validSortFields.has(prefs.sortField)
       ? prefs.sortField
       : DEFAULT_SORT_FIELD;
@@ -312,7 +319,7 @@ export default function useInventory({
   }, [filterCategory, uniqueCategories]);
 
   const categoryCounts = useMemo(() => {
-    const counts = new Map();
+    const counts = new Map<string, { count: number; inStock: number; deployed: number; retired: number }>();
     allItems.forEach((item) => {
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       const category = rawCategory || "Uncategorized";
