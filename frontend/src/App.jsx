@@ -15,6 +15,9 @@ import {
   DEFAULT_SORT_FIELD,
 } from "./constants/inventory.js";
 
+const ALLOWED_USER_VIEWS = new Set(["view", "create", "reset-password", "logs"]);
+const normalizeUserValue = (value) => (value ? String(value).trim().toLowerCase() : "");
+
 export default function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -151,8 +154,7 @@ export default function App() {
       if (view === "users") {
         await userManagement.actions.openUserModal();
         const rawUserView = params.get("view") || "view";
-        const allowedUserViews = new Set(["view", "create", "reset-password", "logs"]);
-        const userView = allowedUserViews.has(rawUserView) ? rawUserView : "view";
+        const userView = ALLOWED_USER_VIEWS.has(rawUserView) ? rawUserView : "view";
         userManagement.actions.setUserManagementView(userView);
         if (userView === "logs") {
           await userManagement.actions.loadUserAuditLogs();
@@ -189,7 +191,7 @@ export default function App() {
         const action = segments[3];
         if (action === "quick") {
           inventory.actions.setQuickActionItem(item);
-          inventory.actions.setQuickActionForm(inventory.constants.emptyQuickActionForm);
+          inventory.actions.setQuickActionForm(inventory.constants.createQuickActionForm());
           inventory.actions.setRetireItem(null);
           inventory.actions.setShowItemModal(false);
           return;
@@ -362,8 +364,7 @@ export default function App() {
       suppressError: true,
     });
     if (result.ok) {
-      const normalize = (value) => (value ? String(value).trim().toLowerCase() : "");
-      if (normalize(previousUsername) !== normalize(usernameValue)) {
+      if (normalizeUserValue(previousUsername) !== normalizeUserValue(usernameValue)) {
         inventory.actions.resetInventoryState();
         userManagement.actions.resetUserManagementState();
         setNotice("");

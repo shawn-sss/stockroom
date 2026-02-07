@@ -12,6 +12,43 @@ from ..utils import create_user_audit_log, require_nonempty
 router = APIRouter()
 
 
+def serialize_user(row: sqlite3.Row):
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "role": row["role"],
+        "created_at": row["created_at"],
+    }
+
+
+def get_user_by_id_or_404(conn: sqlite3.Connection, user_id: int) -> sqlite3.Row:
+    row = conn.execute(
+        "SELECT id, username, role, created_at FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return row
+
+
+def get_user_by_username_or_404(conn: sqlite3.Connection, username: str) -> sqlite3.Row:
+    normalized_username = require_nonempty(username, "username").casefold()
+    row = conn.execute(
+        "SELECT id, username, role, created_at FROM users WHERE lower(username) = ?",
+        (normalized_username,),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return row
+
+
+def can_reset_password(actor: sqlite3.Row, target: sqlite3.Row) -> bool:
+    if actor["role"] == "owner":
+        return True
+    if actor["role"] == "admin":
+        return target["username"] == actor["username"] or target["role"] == "user"
+    return target["username"] == actor["username"]
+
+
 @router.get("/users")
 def list_users(
     conn: sqlite3.Connection = Depends(get_db),
@@ -20,17 +57,7 @@ def list_users(
     rows = conn.execute(
         "SELECT id, username, role, created_at FROM users ORDER BY username ASC"
     ).fetchall()
-    return {
-        "users": [
-            {
-                "id": row["id"],
-                "username": row["username"],
-                "role": row["role"],
-                "created_at": row["created_at"],
-            }
-            for row in rows
-        ]
-    }
+    return {"users": [serialize_user(row) for row in rows]}
 
 
 @router.post("/users", status_code=201)
@@ -76,14 +103,7 @@ def create_user(
     )
     conn.commit()
 
-    return {
-        "user": {
-            "id": row["id"],
-            "username": row["username"],
-            "role": row["role"],
-            "created_at": row["created_at"],
-        }
-    }
+    return {"user": serialize_user(row)}
 
 
 @router.put("/users/{user_id}/role")
@@ -96,11 +116,7 @@ def update_user_role(
     if current_user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only owners can change user roles")
 
-    user_row = conn.execute(
-        "SELECT id, username, role FROM users WHERE id = ?", (user_id,)
-    ).fetchone()
-    if not user_row:
-        raise HTTPException(status_code=404, detail="User not found")
+    user_row = get_user_by_id_or_404(conn, user_id)
 
     if user_row["id"] == current_user["id"] and payload.role != "owner":
         raise HTTPException(status_code=400, detail="Cannot change your own owner role")
@@ -125,17 +141,8 @@ def update_user_role(
     )
     conn.commit()
 
-    updated_row = conn.execute(
-        "SELECT id, username, role, created_at FROM users WHERE id = ?", (user_id,)
-    ).fetchone()
-    return {
-        "user": {
-            "id": updated_row["id"],
-            "username": updated_row["username"],
-            "role": updated_row["role"],
-            "created_at": updated_row["created_at"],
-        }
-    }
+    updated_row = get_user_by_id_or_404(conn, user_id)
+    return {"user": serialize_user(updated_row)}
 
 
 @router.put("/users/{username}/reset-password")
@@ -146,25 +153,14 @@ def reset_user_password(
     current_user=Depends(get_current_user),
 ):
     new_password = require_nonempty(payload.new_password, "new_password")
-    normalized_username = require_nonempty(username, "username").casefold()
-    user_row = conn.execute(
-        "SELECT id, username, role FROM users WHERE lower(username) = ?",
-        (normalized_username,),
-    ).fetchone()
-    if not user_row:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    current_role = current_user["role"]
-    target_role = user_row["role"]
-
-    if current_role == "owner":
-        pass
-    elif current_role == "admin":
-        if user_row["username"] != current_user["username"] and target_role != "user":
-            raise HTTPException(status_code=403, detail="Admins can only reset their own password or a user's password")
-    else:
-        if user_row["username"] != current_user["username"]:
-            raise HTTPException(status_code=403, detail="You can only reset your own password")
+    user_row = get_user_by_username_or_404(conn, username)
+    if not can_reset_password(current_user, user_row):
+        if current_user["role"] == "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Admins can only reset their own password or a user's password",
+            )
+        raise HTTPException(status_code=403, detail="You can only reset your own password")
 
     password_hash = pwd_context.hash(new_password)
     conn.execute(

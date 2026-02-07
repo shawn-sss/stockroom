@@ -3,6 +3,9 @@ import { apiRequest, getApiErrorMessage } from "../../api/client.js";
 
 const initialUserForm = { username: "", password: "", role: "user" };
 const initialResetForm = { username: "", newPassword: "" };
+const createUserForm = () => ({ ...initialUserForm });
+const createResetForm = () => ({ ...initialResetForm });
+const createEditingRoleForm = () => ({ userId: null, newRole: "user" });
 
 export default function useUserManagement({
   token,
@@ -14,31 +17,53 @@ export default function useUserManagement({
   const [showUsers, setShowUsers] = useState(false);
   const [userManagementView, setUserManagementView] = useState("view");
   const [users, setUsers] = useState([]);
-  const [userForm, setUserForm] = useState(initialUserForm);
-  const [resetPasswordForm, setResetPasswordForm] = useState(initialResetForm);
-  const [editingUserRole, setEditingUserRole] = useState({ userId: null, newRole: "user" });
+  const [userForm, setUserForm] = useState(createUserForm);
+  const [resetPasswordForm, setResetPasswordForm] = useState(createResetForm);
+  const [editingUserRole, setEditingUserRole] = useState(createEditingRoleForm);
   const [userAuditLogs, setUserAuditLogs] = useState([]);
 
   const isOwner = role === "owner";
   const isAdmin = role === "admin";
   const canCreateUsers = isOwner || isAdmin;
 
+  const getApiFailure = async (res, fallbackMessage) => {
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (err) {
+      data = null;
+    }
+    return getApiErrorMessage(data, fallbackMessage);
+  };
+
+  const runBusyAction = async (action) => {
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (err) {
+      setError(err.message || "Unexpected error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const resetUserManagementState = () => {
     setShowUsers(false);
     setUserManagementView("view");
     setUsers([]);
-    setUserForm(initialUserForm);
-    setResetPasswordForm(initialResetForm);
-    setEditingUserRole({ userId: null, newRole: "user" });
+    setUserForm(createUserForm());
+    setResetPasswordForm(createResetForm());
+    setEditingUserRole(createEditingRoleForm());
     setUserAuditLogs([]);
   };
 
   const closeUserModal = () => {
     setShowUsers(false);
     setUserManagementView("view");
-    setUserForm(initialUserForm);
-    setResetPasswordForm(initialResetForm);
-    setEditingUserRole({ userId: null, newRole: "user" });
+    setUserForm(createUserForm());
+    setResetPasswordForm(createResetForm());
+    setEditingUserRole(createEditingRoleForm());
   };
 
   const loadUsersList = async () => {
@@ -74,9 +99,7 @@ export default function useUserManagement({
     if (!canCreateUsers) {
       return;
     }
-    setBusy(true);
-    setError("");
-    try {
+    await runBusyAction(async () => {
       const res = await apiRequest(
         "/users",
         {
@@ -91,17 +114,12 @@ export default function useUserManagement({
         token
       );
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(getApiErrorMessage(data, "Failed to create user"));
+        throw new Error(await getApiFailure(res, "Failed to create user"));
       }
-      setUserForm(initialUserForm);
+      setUserForm(createUserForm());
       await loadUsersList();
       setNotice("User created");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const handleUpdateRole = async (userId, newRole) => {
@@ -109,9 +127,7 @@ export default function useUserManagement({
       setError("Only owners can change user roles");
       return;
     }
-    setBusy(true);
-    setError("");
-    try {
+    await runBusyAction(async () => {
       const res = await apiRequest(
         `/users/${userId}/role`,
         {
@@ -122,24 +138,17 @@ export default function useUserManagement({
         token
       );
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(getApiErrorMessage(data, "Failed to update role"));
+        throw new Error(await getApiFailure(res, "Failed to update role"));
       }
       await loadUsersList();
-      setEditingUserRole({ userId: null, newRole: "user" });
+      setEditingUserRole(createEditingRoleForm());
       setNotice("User role updated");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const handleResetPassword = async (event) => {
     event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
+    await runBusyAction(async () => {
       const res = await apiRequest(
         `/users/${resetPasswordForm.username}/reset-password`,
         {
@@ -150,16 +159,11 @@ export default function useUserManagement({
         token
       );
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(getApiErrorMessage(data, "Failed to reset password"));
+        throw new Error(await getApiFailure(res, "Failed to reset password"));
       }
-      setResetPasswordForm(initialResetForm);
+      setResetPasswordForm(createResetForm());
       setNotice("Password reset successfully");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   return {

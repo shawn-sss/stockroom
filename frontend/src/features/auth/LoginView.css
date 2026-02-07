@@ -44,6 +44,20 @@ body.login-view .title {
   letter-spacing: 0.2px;
 }
 
+body.login-view .login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
+body.login-view .login-brand-logo {
+  width: 40px;
+  height: 40px;
+}
+
 body.login-view .subtitle {
   margin: 6px 0 0;
   color: var(--muted);

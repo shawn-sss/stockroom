@@ -13,6 +13,64 @@ from ..utils import create_audit_event, now_iso, require_nonempty, row_to_item, 
 router = APIRouter()
 
 
+def get_item_or_404(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row:
+    row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return row
+
+
+def get_item_response(conn: sqlite3.Connection, item_id: int) -> Dict[str, Any]:
+    return {"item": row_to_item(get_item_or_404(conn, item_id))}
+
+
+def apply_item_status_change(
+    conn: sqlite3.Connection,
+    row: sqlite3.Row,
+    *,
+    item_id: int,
+    next_status: str,
+    next_assigned_user: Optional[str],
+    actor: str,
+    action: str,
+    note: Optional[str],
+) -> Dict[str, Any]:
+    changes = {
+        "status": {"old": row["status"], "new": next_status},
+        "assigned_user": {"old": row["assigned_user"], "new": next_assigned_user},
+    }
+    conn.execute(
+        "UPDATE items SET status = ?, assigned_user = ?, updated_at = ? WHERE id = ?",
+        (next_status, next_assigned_user, now_iso(), item_id),
+    )
+    create_audit_event(
+        conn,
+        item_id,
+        actor,
+        action,
+        changes=changes,
+        note=note,
+    )
+    conn.commit()
+    return get_item_response(conn, item_id)
+
+
+def build_history(events: List[sqlite3.Row]) -> List[Dict[str, Any]]:
+    history = []
+    for event in events:
+        history.append(
+            {
+                "id": event["id"],
+                "actor": event["actor"],
+                "timestamp": event["timestamp"],
+                "action": event["action"],
+                "changes": json.loads(event["changes"]) if event["changes"] else None,
+                "note": event["note"],
+            }
+        )
+    return history
+
+
 @router.get("/items")
 def list_items(
     q: Optional[str] = Query(None),
@@ -93,26 +151,11 @@ def get_item(
     conn: sqlite3.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Item not found")
+    row = get_item_or_404(conn, item_id)
     events = conn.execute(
         "SELECT * FROM audit_events WHERE item_id = ? ORDER BY id ASC", (item_id,)
     ).fetchall()
-    history = []
-    for event in events:
-        changes = json.loads(event["changes"]) if event["changes"] else None
-        history.append(
-            {
-                "id": event["id"],
-                "actor": event["actor"],
-                "timestamp": event["timestamp"],
-                "action": event["action"],
-                "changes": changes,
-                "note": event["note"],
-            }
-        )
-    return {"item": row_to_item(row), "history": history}
+    return {"item": row_to_item(row), "history": build_history(events)}
 
 
 @router.put("/items/{item_id}")
@@ -122,9 +165,7 @@ def update_item(
     conn: sqlite3.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Item not found")
+    row = get_item_or_404(conn, item_id)
     updates: Dict[str, str] = {}
     for field in ["category", "make", "model", "service_tag", "row"]:
         value = getattr(payload, field)
@@ -160,8 +201,7 @@ def update_item(
         note=payload.note,
     )
     conn.commit()
-    updated = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    return {"item": row_to_item(updated)}
+    return get_item_response(conn, item_id)
 
 
 @router.post("/items/{item_id}/deploy")
@@ -171,35 +211,22 @@ def deploy_item(
     conn: sqlite3.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Item not found")
+    row = get_item_or_404(conn, item_id)
     if row["status"] == STATUS_RETIRED:
         raise HTTPException(status_code=400, detail="Item is retired")
     assigned_user = title_case_words(require_nonempty(payload.assigned_user, "assigned_user"))
-    changes: Dict[str, Dict[str, Any]] = {}
-    if row["status"] != STATUS_DEPLOYED:
-        changes["status"] = {"old": row["status"], "new": STATUS_DEPLOYED}
-    if assigned_user != row["assigned_user"]:
-        changes["assigned_user"] = {"old": row["assigned_user"], "new": assigned_user}
-    if not changes:
+    if row["status"] == STATUS_DEPLOYED and assigned_user == row["assigned_user"]:
         raise HTTPException(status_code=400, detail="No changes to apply")
-    updated_at = now_iso()
-    conn.execute(
-        "UPDATE items SET status = ?, assigned_user = ?, updated_at = ? WHERE id = ?",
-        (STATUS_DEPLOYED, assigned_user, updated_at, item_id),
-    )
-    create_audit_event(
-        conn,
-        item_id,
-        current_user["username"],
-        "deploy",
-        changes=changes,
+    return apply_item_status_change(
+        conn=conn,
+        row=row,
+        item_id=item_id,
+        next_status=STATUS_DEPLOYED,
+        next_assigned_user=assigned_user,
+        actor=current_user["username"],
+        action="deploy",
         note=payload.note,
     )
-    conn.commit()
-    updated = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    return {"item": row_to_item(updated)}
 
 
 @router.post("/items/{item_id}/return")
@@ -209,33 +236,21 @@ def return_item(
     conn: sqlite3.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Item not found")
+    row = get_item_or_404(conn, item_id)
     if row["status"] == STATUS_RETIRED:
         raise HTTPException(status_code=400, detail="Item is retired")
     if row["status"] == STATUS_IN_STOCK and row["assigned_user"] is None:
         raise HTTPException(status_code=400, detail="Item already in stock")
-    changes = {
-        "status": {"old": row["status"], "new": STATUS_IN_STOCK},
-        "assigned_user": {"old": row["assigned_user"], "new": None},
-    }
-    updated_at = now_iso()
-    conn.execute(
-        "UPDATE items SET status = ?, assigned_user = ?, updated_at = ? WHERE id = ?",
-        (STATUS_IN_STOCK, None, updated_at, item_id),
-    )
-    create_audit_event(
-        conn,
-        item_id,
-        current_user["username"],
-        "return",
-        changes=changes,
+    return apply_item_status_change(
+        conn=conn,
+        row=row,
+        item_id=item_id,
+        next_status=STATUS_IN_STOCK,
+        next_assigned_user=None,
+        actor=current_user["username"],
+        action="return",
         note=payload.note,
     )
-    conn.commit()
-    updated = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    return {"item": row_to_item(updated)}
 
 
 @router.post("/items/{item_id}/retire")
@@ -245,33 +260,21 @@ def retire_item(
     conn: sqlite3.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Item not found")
+    row = get_item_or_404(conn, item_id)
     if row["status"] == STATUS_DEPLOYED:
         raise HTTPException(status_code=400, detail="Item is deployed")
     if row["status"] == STATUS_RETIRED:
         raise HTTPException(status_code=400, detail="Item already retired")
-    changes = {
-        "status": {"old": row["status"], "new": STATUS_RETIRED},
-        "assigned_user": {"old": row["assigned_user"], "new": None},
-    }
-    updated_at = now_iso()
-    conn.execute(
-        "UPDATE items SET status = ?, assigned_user = ?, updated_at = ? WHERE id = ?",
-        (STATUS_RETIRED, None, updated_at, item_id),
-    )
-    create_audit_event(
-        conn,
-        item_id,
-        current_user["username"],
-        "retire",
-        changes=changes,
+    return apply_item_status_change(
+        conn=conn,
+        row=row,
+        item_id=item_id,
+        next_status=STATUS_RETIRED,
+        next_assigned_user=None,
+        actor=current_user["username"],
+        action="retire",
         note=payload.note,
     )
-    conn.commit()
-    updated = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    return {"item": row_to_item(updated)}
 
 
 @router.post("/items/{item_id}/restore")
@@ -281,28 +284,16 @@ def restore_item(
     conn: sqlite3.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Item not found")
+    row = get_item_or_404(conn, item_id)
     if row["status"] != STATUS_RETIRED:
         raise HTTPException(status_code=400, detail="Item is not retired")
-    changes = {
-        "status": {"old": row["status"], "new": STATUS_IN_STOCK},
-        "assigned_user": {"old": row["assigned_user"], "new": None},
-    }
-    updated_at = now_iso()
-    conn.execute(
-        "UPDATE items SET status = ?, assigned_user = ?, updated_at = ? WHERE id = ?",
-        (STATUS_IN_STOCK, None, updated_at, item_id),
-    )
-    create_audit_event(
-        conn,
-        item_id,
-        current_user["username"],
-        "restore",
-        changes=changes,
+    return apply_item_status_change(
+        conn=conn,
+        row=row,
+        item_id=item_id,
+        next_status=STATUS_IN_STOCK,
+        next_assigned_user=None,
+        actor=current_user["username"],
+        action="restore",
         note=payload.note,
     )
-    conn.commit()
-    updated = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    return {"item": row_to_item(updated)}

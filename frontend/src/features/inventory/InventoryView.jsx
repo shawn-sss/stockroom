@@ -675,18 +675,15 @@ export default function InventoryView({
                         : "Deploy"}
                     </button>
                   </div>
-                  <div className="muted">Service tag: {item.service_tag}</div>
-                  {item.row ? <div className="muted">Row: {item.row}</div> : null}
-                  <div className="meta-stack">
+                  <div className="meta-stack item-card-meta">
+                    <div className="muted meta-line">Service tag: {item.service_tag}</div>
                     <div className="muted meta-line">Created: {formatDate(item.created_at)}</div>
-                    <div className="meta-row">
-                      <div className="muted meta-line">
-                        Updated: {formatDate(item.updated_at || item.created_at)}
-                      </div>
-                      {item.assigned_user ? (
-                        <div className="muted meta-line">Assigned: {item.assigned_user}</div>
-                      ) : null}
+                    <div className="muted meta-line">
+                      Updated: {formatDate(item.updated_at || item.created_at)}
                     </div>
+                    {item.assigned_user ? (
+                      <div className="muted meta-line">Assigned: {item.assigned_user}</div>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -950,7 +947,7 @@ export default function InventoryView({
         setQuickActionForm={setQuickActionForm}
         onClose={() => {
           setQuickActionItem(null);
-          setQuickActionForm(constants.emptyQuickActionForm);
+          setQuickActionForm(constants.createQuickActionForm());
         }}
         onSubmit={handleQuickActionSubmit}
         busy={busy}

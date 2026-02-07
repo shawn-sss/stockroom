@@ -21,11 +21,11 @@ export default function LoginView({ onLogin, busy, notice, error }) {
       <div className="panel login-panel">
         <a
           href="#/inventory"
-          style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, textDecoration: "none", color: "inherit" }}
+          className="login-brand"
           title="Go to homepage"
         >
-          <img src="/logo.png" alt="Stockroom" style={{ width: 40, height: 40 }} />
-          <h1 className="title" style={{ margin: 0 }}>Stockroom</h1>
+          <img src="/logo.png" alt="Stockroom" className="login-brand-logo" />
+          <h1 className="title">Stockroom</h1>
         </a>
         <p className="subtitle">Sign in to manage inventory and deployments.</p>
         <form onSubmit={onLogin} className="form-grid">

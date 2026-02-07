@@ -26,10 +26,10 @@ const emptyItemForm = {
   row: "",
   note: "",
 };
-const initialAddForm = { ...emptyItemForm };
-const initialEditForm = { ...emptyItemForm };
-const emptyQuickActionForm = { assignedUser: "", note: "" };
-const defaultDropdownState = { category: true, make: true, model: true };
+const createItemForm = () => ({ ...emptyItemForm });
+const createQuickActionForm = () => ({ assignedUser: "", note: "" });
+const createDropdownState = () => ({ category: true, make: true, model: true });
+const createRetireForm = () => ({ note: "" });
 
 const hasRequiredItemFields = (form) =>
   Boolean(
@@ -63,26 +63,48 @@ export default function useInventory({
   const [selectedId, setSelectedId] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [history, setHistory] = useState([]);
-  const [addForm, setAddForm] = useState(initialAddForm);
-  const [editForm, setEditForm] = useState(initialEditForm);
+  const [addForm, setAddForm] = useState(createItemForm);
+  const [editForm, setEditForm] = useState(createItemForm);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
   const [quickActionItem, setQuickActionItem] = useState(null);
-  const [quickActionForm, setQuickActionForm] = useState(emptyQuickActionForm);
+  const [quickActionForm, setQuickActionForm] = useState(createQuickActionForm);
   const [filterStatus, setFilterStatus] = useState(DEFAULT_FILTER_STATUS);
   const [filterCategory, setFilterCategory] = useState(DEFAULT_FILTER_CATEGORY);
   const [sortField, setSortField] = useState(DEFAULT_SORT_FIELD);
   const [sortDirection, setSortDirection] = useState(DEFAULT_SORT_DIRECTION);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [page, setPage] = useState(1);
-  const [useDropdowns, setUseDropdowns] = useState(defaultDropdownState);
-  const [useEditDropdowns, setUseEditDropdowns] = useState(defaultDropdownState);
+  const [useDropdowns, setUseDropdowns] = useState(createDropdownState);
+  const [useEditDropdowns, setUseEditDropdowns] = useState(createDropdownState);
   const [editUnlocked, setEditUnlocked] = useState(false);
   const [historySortDirection, setHistorySortDirection] = useState("desc");
   const itemModalMouseDown = useRef(false);
   const prefsLoadedForUser = useRef(null);
   const [retireItem, setRetireItem] = useState(null);
-  const [retireForm, setRetireForm] = useState({ note: "" });
+  const [retireForm, setRetireForm] = useState(createRetireForm);
+
+  const getApiFailure = async (res, fallbackMessage) => {
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (err) {
+      data = null;
+    }
+    return getApiErrorMessage(data, fallbackMessage);
+  };
+
+  const runBusyAction = async (action) => {
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (err) {
+      setError(err.message || "Unexpected error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const getStatusBadgeClass = (status) => {
     if (status === STATUS_IN_STOCK) {
@@ -403,9 +425,7 @@ export default function useInventory({
     if (!hasRequiredItemFields(addForm)) {
       return;
     }
-    setBusy(true);
-    setError("");
-    try {
+    await runBusyAction(async () => {
       const res = await apiRequest(
         "/items",
         {
@@ -423,23 +443,18 @@ export default function useInventory({
         token
       );
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(getApiErrorMessage(data, "Failed to add item"));
+        throw new Error(await getApiFailure(res, "Failed to add item"));
       }
       const data = await res.json();
       await loadItems(token, search.trim());
       await loadAllItems(token);
-      setAddForm(initialAddForm);
-      setUseDropdowns(defaultDropdownState);
+      setAddForm(createItemForm());
+      setUseDropdowns(createDropdownState());
       setSelectedId(data.item.id);
       await loadItemDetail(data.item.id);
       setShowAddModal(false);
       setNotice("Item added");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const handleEditSubmit = async (event) => {
@@ -450,9 +465,7 @@ export default function useInventory({
     if (!hasRequiredItemFields(editForm)) {
       return;
     }
-    setBusy(true);
-    setError("");
-    try {
+    await runBusyAction(async () => {
       const res = await apiRequest(
         `/items/${selectedId}`,
         {
@@ -470,18 +483,13 @@ export default function useInventory({
         token
       );
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(getApiErrorMessage(data, "Failed to update item"));
+        throw new Error(await getApiFailure(res, "Failed to update item"));
       }
       await loadItems(token, search.trim());
       await loadAllItems(token);
       await loadItemDetail(selectedId);
       setNotice("Edits saved");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const handleRetireSubmit = async (event) => {
@@ -489,9 +497,7 @@ export default function useInventory({
     if (!retireItem) {
       return;
     }
-    setBusy(true);
-    setError("");
-    try {
+    await runBusyAction(async () => {
       const isRetired = retireItem.status === STATUS_RETIRED;
       const endpoint = isRetired ? "restore" : "retire";
       let path;
@@ -510,8 +516,7 @@ export default function useInventory({
         token
       );
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(getApiErrorMessage(data, "Failed to update status"));
+        throw new Error(await getApiFailure(res, "Failed to update status"));
       }
       await loadItems(token, search.trim());
       await loadAllItems(token);
@@ -519,13 +524,9 @@ export default function useInventory({
         await loadItemDetail(retireItem.id);
       }
       setRetireItem(null);
-      setRetireForm({ note: "" });
+      setRetireForm(createRetireForm());
       setNotice(isRetired ? "Item restored" : "Item retired");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const handleQuickActionSubmit = async (event) => {
@@ -533,9 +534,7 @@ export default function useInventory({
     if (!quickActionItem) {
       return;
     }
-    setBusy(true);
-    setError("");
-    try {
+    await runBusyAction(async () => {
       if (quickActionItem.status === STATUS_DEPLOYED) {
         const res = await apiRequest(
           `/items/${quickActionItem.id}/return`,
@@ -547,8 +546,7 @@ export default function useInventory({
           token
         );
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(getApiErrorMessage(data, "Failed to return item"));
+          throw new Error(await getApiFailure(res, "Failed to return item"));
         }
         setNotice("Item returned to stock");
       } else {
@@ -565,8 +563,7 @@ export default function useInventory({
           token
         );
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(getApiErrorMessage(data, "Failed to deploy item"));
+          throw new Error(await getApiFailure(res, "Failed to deploy item"));
         }
         setNotice("Item marked as deployed");
       }
@@ -576,12 +573,8 @@ export default function useInventory({
         await loadItemDetail(quickActionItem.id);
       }
       setQuickActionItem(null);
-      setQuickActionForm(emptyQuickActionForm);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+      setQuickActionForm(createQuickActionForm());
+    });
   };
 
   const selectedHistory = useMemo(() => {
@@ -643,7 +636,7 @@ export default function useInventory({
     setHistory([]);
     setEditUnlocked(false);
     setRetireItem(null);
-    setRetireForm({ note: "" });
+    setRetireForm(createRetireForm());
   };
 
   const closeItemModal = () => {
@@ -653,8 +646,8 @@ export default function useInventory({
 
   const closeAddModal = () => {
     setShowAddModal(false);
-    setAddForm(initialAddForm);
-    setUseDropdowns(defaultDropdownState);
+    setAddForm(createItemForm());
+    setUseDropdowns(createDropdownState());
   };
 
   const resetInventoryState = () => {
@@ -664,24 +657,24 @@ export default function useInventory({
     setSelectedId(null);
     setSelectedItem(null);
     setHistory([]);
-    setAddForm(initialAddForm);
-    setEditForm(initialEditForm);
+    setAddForm(createItemForm());
+    setEditForm(createItemForm());
     setShowAddModal(false);
     setShowItemModal(false);
     setQuickActionItem(null);
-    setQuickActionForm(emptyQuickActionForm);
+    setQuickActionForm(createQuickActionForm());
     setFilterStatus(DEFAULT_FILTER_STATUS);
     setFilterCategory(DEFAULT_FILTER_CATEGORY);
     setSortField(DEFAULT_SORT_FIELD);
     setSortDirection(DEFAULT_SORT_DIRECTION);
     setPageSize(DEFAULT_PAGE_SIZE);
     setPage(1);
-    setUseDropdowns(defaultDropdownState);
-    setUseEditDropdowns(defaultDropdownState);
+    setUseDropdowns(createDropdownState());
+    setUseEditDropdowns(createDropdownState());
     setEditUnlocked(false);
     setHistorySortDirection("desc");
     setRetireItem(null);
-    setRetireForm({ note: "" });
+    setRetireForm(createRetireForm());
   };
 
   return {
@@ -766,7 +759,7 @@ export default function useInventory({
       getStatusBadgeClass,
     },
     constants: {
-      emptyQuickActionForm,
+      createQuickActionForm,
     },
   };
 }
