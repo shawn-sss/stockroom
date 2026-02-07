@@ -381,7 +381,7 @@ export default function useInventory({
       model: data.item.model,
       serviceTag: data.item.service_tag,
       row: data.item.row ?? "",
-      note: "",
+      note: data.item.note ?? "",
     });
     setEditUnlocked(false);
     const categoryOptions = formCategoryOptions;
@@ -584,6 +584,7 @@ export default function useInventory({
       model: "Model",
       service_tag: "Service tag",
       row: "Row",
+      note: "Note",
       status: "Status",
       assigned_user: "Assigned user",
     };
@@ -596,6 +597,7 @@ export default function useInventory({
     const fmt = (value) => (normalizeHistoryValue(value) === "" ? "-" : String(value));
     const formatted = history.map((event) => {
       const changes = event.changes || {};
+      const hasNoteFieldChange = Object.prototype.hasOwnProperty.call(changes, "note");
       const changeLines = Object.keys(changes)
         .map((key) => {
           const entry = changes[key];
@@ -606,7 +608,12 @@ export default function useInventory({
           return `${label}: ${fmt(entry.old)} -> ${fmt(entry.new)}`;
         })
         .filter(Boolean);
-      return { ...event, changeLines, prettyTimestamp: formatDate(event.timestamp) };
+      return {
+        ...event,
+        hasNoteFieldChange,
+        changeLines,
+        prettyTimestamp: formatDate(event.timestamp),
+      };
     });
     return formatted.sort((a, b) => {
       const delta = getSortableTime(b.timestamp) - getSortableTime(a.timestamp);
@@ -623,9 +630,9 @@ export default function useInventory({
       editForm.make !== selectedItem.make ||
       editForm.model !== selectedItem.model ||
       editForm.serviceTag !== selectedItem.service_tag ||
-      editForm.row !== (selectedItem.row ?? "");
-    const hasNote = Boolean(editForm.note && editForm.note.trim());
-    return hasItemChanges || hasNote;
+      editForm.row !== (selectedItem.row ?? "") ||
+      editForm.note !== (selectedItem.note ?? "");
+    return hasItemChanges;
   }, [editForm, selectedItem]);
 
   const editIsValid = useMemo(() => hasRequiredItemFields(editForm), [editForm]);

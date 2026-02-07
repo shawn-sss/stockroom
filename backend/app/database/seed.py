@@ -1,8 +1,8 @@
 import json
 from datetime import datetime, timedelta
 
-from .constants import STATUS_DEPLOYED, STATUS_IN_STOCK
-from .crypto import pwd_context
+from ..core.constants import STATUS_DEPLOYED, STATUS_IN_STOCK
+from ..core.crypto import pwd_context
 
 
 def seed_owner(conn) -> None:
@@ -69,10 +69,22 @@ def seed_items(conn) -> None:
         created_at_str = created_at.isoformat()
         cursor = conn.execute(
             """
-            INSERT INTO items (category, make, model, service_tag, row, status, assigned_user, created_at, created_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO items (category, make, model, service_tag, row, note, status, assigned_user, created_at, created_by, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (category, make, model, service_tag, row, STATUS_IN_STOCK, None, created_at_str, created_by, created_at_str),
+            (
+                category,
+                make,
+                model,
+                service_tag,
+                row,
+                None,
+                STATUS_IN_STOCK,
+                None,
+                created_at_str,
+                created_by,
+                created_at_str,
+            ),
         )
         item_id = cursor.lastrowid
         changes = {
@@ -81,6 +93,7 @@ def seed_items(conn) -> None:
             "model": {"old": None, "new": model},
             "service_tag": {"old": None, "new": service_tag},
             "row": {"old": None, "new": row},
+            "note": {"old": None, "new": None},
             "status": {"old": None, "new": STATUS_IN_STOCK},
             "assigned_user": {"old": None, "new": None},
         }

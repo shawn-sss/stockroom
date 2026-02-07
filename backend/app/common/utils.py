@@ -31,6 +31,7 @@ def row_to_item(row: sqlite3.Row) -> Dict[str, Any]:
         "model": row["model"],
         "service_tag": row["service_tag"],
         "row": row["row"] if "row" in row.keys() else None,
+        "note": row["note"] if "note" in row.keys() else None,
         "status": row["status"],
         "assigned_user": row["assigned_user"],
         "created_at": row["created_at"],

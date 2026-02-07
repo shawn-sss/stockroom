@@ -4,7 +4,7 @@ import sqlite3
 from .migrations import ensure_migrations
 from .seed import seed_items, seed_owner
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "app.db")
 
 
 def get_db():
@@ -41,6 +41,7 @@ def init_db():
             model TEXT NOT NULL,
             service_tag TEXT NOT NULL,
             row TEXT,
+            note TEXT,
             status TEXT NOT NULL,
             assigned_user TEXT,
             created_at TEXT NOT NULL,

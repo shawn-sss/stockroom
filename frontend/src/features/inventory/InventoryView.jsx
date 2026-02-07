@@ -914,7 +914,9 @@ export default function InventoryView({
                                 <div key={line} className="muted">{line}</div>
                               ))
                             : null}
-                          {event.note ? <div className="muted">Note: {event.note}</div> : null}
+                          {event.note && !event.hasNoteFieldChange ? (
+                            <div className="muted">Action note: {event.note}</div>
+                          ) : null}
                         </div>
                       </div>
                     ))}

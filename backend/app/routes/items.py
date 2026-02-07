@@ -1,74 +1,16 @@
-import json
 import sqlite3
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..constants import STATUS_DEPLOYED, STATUS_IN_STOCK, STATUS_RETIRED
-from ..db import get_db
-from ..schemas import DeployRequest, ItemCreate, ItemUpdate, ReturnRequest
-from ..security import get_current_user
-from ..utils import create_audit_event, now_iso, require_nonempty, row_to_item, title_case_words
+from ..common import create_audit_event, now_iso, require_nonempty, row_to_item, title_case_words
+from ..core.constants import STATUS_DEPLOYED, STATUS_IN_STOCK, STATUS_RETIRED
+from ..core.security import get_current_user
+from ..database.db import get_db
+from ..models import DeployRequest, ItemCreate, ItemUpdate, ReturnRequest
+from ..services import apply_item_status_change, build_history, get_item_or_404, get_item_response
 
 router = APIRouter()
-
-
-def get_item_or_404(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row:
-    row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Item not found")
-    return row
-
-
-def get_item_response(conn: sqlite3.Connection, item_id: int) -> Dict[str, Any]:
-    return {"item": row_to_item(get_item_or_404(conn, item_id))}
-
-
-def apply_item_status_change(
-    conn: sqlite3.Connection,
-    row: sqlite3.Row,
-    *,
-    item_id: int,
-    next_status: str,
-    next_assigned_user: Optional[str],
-    actor: str,
-    action: str,
-    note: Optional[str],
-) -> Dict[str, Any]:
-    changes = {
-        "status": {"old": row["status"], "new": next_status},
-        "assigned_user": {"old": row["assigned_user"], "new": next_assigned_user},
-    }
-    conn.execute(
-        "UPDATE items SET status = ?, assigned_user = ?, updated_at = ? WHERE id = ?",
-        (next_status, next_assigned_user, now_iso(), item_id),
-    )
-    create_audit_event(
-        conn,
-        item_id,
-        actor,
-        action,
-        changes=changes,
-        note=note,
-    )
-    conn.commit()
-    return get_item_response(conn, item_id)
-
-
-def build_history(events: List[sqlite3.Row]) -> List[Dict[str, Any]]:
-    history = []
-    for event in events:
-        history.append(
-            {
-                "id": event["id"],
-                "actor": event["actor"],
-                "timestamp": event["timestamp"],
-                "action": event["action"],
-                "changes": json.loads(event["changes"]) if event["changes"] else None,
-                "note": event["note"],
-            }
-        )
-    return history
 
 
 @router.get("/items")
@@ -103,11 +45,12 @@ def add_item(
     model = require_nonempty(payload.model, "model")
     service_tag = require_nonempty(payload.service_tag, "service_tag")
     row = payload.row.strip() if payload.row else None
+    note = payload.note.strip() if payload.note else None
     cur = conn.execute(
         """
         INSERT INTO items (
-            category, make, model, service_tag, row, status, assigned_user, created_at, created_by, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            category, make, model, service_tag, row, note, status, assigned_user, created_at, created_by, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             category,
@@ -115,6 +58,7 @@ def add_item(
             model,
             service_tag,
             row,
+            note,
             STATUS_IN_STOCK,
             None,
             created_at,
@@ -129,6 +73,7 @@ def add_item(
         "model": {"old": None, "new": model},
         "service_tag": {"old": None, "new": service_tag},
         "row": {"old": None, "new": row},
+        "note": {"old": None, "new": note},
         "status": {"old": None, "new": STATUS_IN_STOCK},
         "assigned_user": {"old": None, "new": None},
     }
@@ -138,7 +83,6 @@ def add_item(
         current_user["username"],
         "add",
         changes=changes,
-        note=payload.note,
     )
     conn.commit()
     row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
@@ -167,16 +111,16 @@ def update_item(
 ):
     row = get_item_or_404(conn, item_id)
     updates: Dict[str, str] = {}
-    for field in ["category", "make", "model", "service_tag", "row"]:
+    for field in ["category", "make", "model", "service_tag", "row", "note"]:
         value = getattr(payload, field)
         if value is not None:
-            if field == "row":
+            if field in ("row", "note"):
                 normalized = value.strip()
             else:
                 normalized = require_nonempty(value, field)
             if field == "category":
                 normalized = title_case_words(normalized)
-            if field == "row" and normalized == "":
+            if field in ("row", "note") and normalized == "":
                 normalized = None
             updates[field] = normalized
     changes: Dict[str, Dict[str, Any]] = {}
@@ -198,7 +142,6 @@ def update_item(
         current_user["username"],
         "edit",
         changes=changes,
-        note=payload.note,
     )
     conn.commit()
     return get_item_response(conn, item_id)

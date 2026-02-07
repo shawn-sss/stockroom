@@ -15,3 +15,5 @@ def ensure_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE items SET updated_at = created_at WHERE updated_at IS NULL")
     if "row" not in item_cols:
         conn.execute("ALTER TABLE items ADD COLUMN row TEXT")
+    if "note" not in item_cols:
+        conn.execute("ALTER TABLE items ADD COLUMN note TEXT")
