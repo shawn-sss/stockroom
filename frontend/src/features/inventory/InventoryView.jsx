@@ -112,22 +112,27 @@ export default function InventoryView({
     <div className="app-shell">
       <style>{`
         :root {
-          --bg: #0b1220;
-          --surface: #0f172a;
-          --card: #0b1220;
-          --panel: #111a2e;
-          --border: rgba(255, 255, 255, 0.10);
-          --text: rgba(255, 255, 255, 0.92);
-          --muted: rgba(255, 255, 255, 0.65);
-          --primary: #3b82f6;
-          --primary-2: #2563eb;
+          --bg: #ffffff;
+          --surface: #f4fbff;
+          --card: #f7fcff;
+          --panel: #f1f9ff;
+          --border: rgba(3, 98, 165, 0.22);
+          --text: #0b2f4a;
+          --muted: rgba(11, 47, 74, 0.84);
+          --primary: var(--color-blue-bell);
+          --primary-2: var(--color-baltic-blue);
+          --accent: var(--color-sky-blue);
+          --surface-soft: rgba(112, 189, 225, 0.18);
+          --field-bg: #ffffff;
+          --field-disabled-bg: #eaf2f8;
+          --field-disabled-text: #47637b;
           --danger: #ef4444;
           --success: #22c55e;
           --warning: #f59e0b;
         }
 
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background: radial-gradient(1100px 600px at 10% 0%, rgba(59,130,246,0.25), transparent 55%), var(--bg); color: var(--text); min-height: 100vh; background-attachment: fixed; }
+        body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background: radial-gradient(1100px 600px at 6% 0%, rgba(112, 189, 225, 0.24), transparent 60%), radial-gradient(900px 520px at 96% 12%, rgba(5, 151, 208, 0.15), transparent 64%), var(--bg); color: var(--text); min-height: 100vh; background-attachment: fixed; }
         a { color: inherit; }
 
         .app-shell { max-width: 1160px; margin: 0 auto; padding: clamp(16px, 3vw, 24px); }
@@ -154,11 +159,11 @@ export default function InventoryView({
         }
 
         .panel {
-          background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+          background: linear-gradient(170deg, rgba(255, 255, 255, 0.95), rgba(112, 189, 225, 0.1));
           border: 1px solid var(--border);
           border-radius: 16px;
           padding: 16px;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+          box-shadow: 0 16px 34px rgba(3, 98, 165, 0.14);
           backdrop-filter: blur(10px);
         }
         .stack { display: grid; gap: 12px; }
@@ -166,7 +171,7 @@ export default function InventoryView({
         .muted { color: var(--muted); font-size: 12px; }
         .meta-stack { display: grid; gap: 4px; margin-top: 4px; }
         .meta-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-        .meta-line { font-size: 11px; line-height: 1.2; }
+        .meta-line { font-size: 12px; line-height: 1.3; color: var(--muted); }
         .item-card, .meta-line, .muted { overflow-wrap: anywhere; word-break: break-word; }
 
         .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -174,22 +179,23 @@ export default function InventoryView({
         .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
         .filter-row { align-items: flex-start; }
         .filter-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; min-height: 22px; }
+        .filter-label .muted { color: #24506f; }
         .filter-label .label-spacer { width: 28px; height: 22px; }
         .filter-toggle { padding: 4px 8px; font-size: 14px; line-height: 1; }
         .filter-select { padding: 8px 12px; min-height: 38px; }
 
         .item-card {
           border: 1px solid var(--border);
-          background: rgba(255, 255, 255, 0.02);
+          background: rgba(255, 255, 255, 0.9);
           padding: 12px;
           border-radius: 14px;
           cursor: pointer;
           transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
         }
-        .item-card:hover { transform: translateY(-1px); background: rgba(255,255,255,0.04); }
-        .item-card.active { border-color: rgba(59,130,246,0.7); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .item-card:hover { transform: translateY(-1px); background: rgba(112, 189, 225, 0.15); }
+        .item-card.active { border-color: rgba(112, 189, 225, 0.78); box-shadow: 0 0 0 3px rgba(5, 151, 208, 0.22); }
 
-        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); background: rgba(112, 189, 225, 0.15); }
         .badge.success { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.12); }
         .badge.warning { border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.12); }
         .badge.danger { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.12); }
@@ -203,8 +209,8 @@ export default function InventoryView({
           border: 1px solid var(--border);
           border-radius: 14px;
           padding: 12px;
-          background: radial-gradient(120px 80px at 10% 0%, rgba(59,130,246,0.18), rgba(255,255,255,0.02));
-          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+          background: radial-gradient(120px 80px at 10% 0%, rgba(112, 189, 225, 0.24), rgba(255,255,255,0.9));
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.75);
         }
         .category-count-number { font-size: 24px; font-weight: 700; letter-spacing: 0.3px; }
         .category-count-name {
@@ -216,7 +222,7 @@ export default function InventoryView({
         }
         .category-count-meta {
           margin-top: 6px;
-          font-size: 11px;
+          font-size: 12px;
           color: var(--muted);
         }
 
@@ -236,45 +242,49 @@ export default function InventoryView({
           padding: 10px 12px;
           border-radius: 10px;
           border: 1px solid var(--border);
-          background: rgba(2,6,23,0.55);
+          background: var(--field-bg);
           color: var(--text);
           font: inherit;
           outline: none;
         }
         input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); }
-        input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.45); }
-        input:not([type="checkbox"]):focus, textarea:focus, select:focus { border-color: rgba(59,130,246,0.75); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
-        input.input-locked {
-          color: var(--muted);
-          background: rgba(2,6,23,0.35);
-        }
+        input::placeholder, textarea::placeholder { color: rgba(11, 47, 74, 0.62); }
+        input:not([type="checkbox"]):focus, textarea:focus, select:focus { border-color: rgba(112, 189, 225, 0.82); box-shadow: 0 0 0 3px rgba(5, 151, 208, 0.2); }
+        input.input-locked,
+        input:disabled,
+        textarea:disabled,
         select:disabled {
-          color: var(--muted);
-          background: rgba(2,6,23,0.35);
+          color: var(--field-disabled-text);
+          background: var(--field-disabled-bg);
+          border-color: rgba(3, 98, 165, 0.22);
           opacity: 1;
+          cursor: not-allowed;
         }
         button {
           padding: 10px 12px;
           border-radius: 10px;
-          border: 1px solid rgba(255,255,255,0.10);
+          border: 1px solid rgba(3,98,165,0.24);
           background: linear-gradient(180deg, var(--primary), var(--primary-2));
           color: white;
           font-weight: 700;
           cursor: pointer;
+          white-space: nowrap;
+          word-break: normal;
+          overflow-wrap: normal;
           transition: filter 120ms ease, transform 120ms ease;
         }
         button:hover { filter: brightness(1.05); transform: translateY(-1px); }
         button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        button.secondary { background: rgba(255,255,255,0.08); color: var(--text); border-color: var(--border); }
+        button.secondary { background: linear-gradient(180deg, #ffffff, #edf6fd); color: #1f4e70; border-color: rgba(3, 98, 165, 0.3); }
         button.danger { background: linear-gradient(180deg, var(--danger), #b91c1c); }
 
         .notice {
           margin-top: 14px;
           padding: 10px 12px;
           border-radius: 12px;
-          border: 1px solid rgba(34,197,94,0.25);
-          background: rgba(34,197,94,0.12);
-          color: rgba(255,255,255,0.92);
+          border: 1px solid rgba(112, 189, 225, 0.5);
+          background: rgba(112, 189, 225, 0.16);
+          color: #083251;
         }
         .error {
           margin-top: 14px;
@@ -302,7 +312,8 @@ export default function InventoryView({
         .modal-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(0,0,0,0.55);
+          background: rgba(8, 30, 46, 0.72);
+          backdrop-filter: blur(2px);
           display: flex;
           align-items: flex-start;
           justify-content: center;
@@ -311,10 +322,10 @@ export default function InventoryView({
         }
         .modal {
           width: min(900px, calc(100vw - 24px));
-          background: rgba(17,26,46,0.95);
+          background: linear-gradient(170deg, #ffffff, #f3faff);
           border: 1px solid var(--border);
           border-radius: 18px;
-          box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+          box-shadow: 0 24px 52px rgba(3,98,165,0.2);
           padding: 16px;
           max-height: calc(100vh - 96px);
           overflow: auto;
@@ -333,7 +344,7 @@ export default function InventoryView({
           padding: 6px 8px;
           border: 1px solid var(--border);
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.04);
+          background: var(--surface-soft);
         }
         .pager .pager-label {
           font-size: 11px;
@@ -370,7 +381,7 @@ export default function InventoryView({
           width: 16px;
           height: 16px;
           display: block;
-          fill: var(--text);
+          fill: #ffffff;
         }
         @media (max-width: 1100px) {
           .layout { grid-template-columns: 300px 1fr; }
@@ -410,10 +421,14 @@ export default function InventoryView({
       `}</style>
       <div className="topbar">
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+          <a
+            href="#/inventory"
+            style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6, textDecoration: "none", color: "inherit" }}
+            title="Go to homepage"
+          >
             <img src="/logo.png" alt="Stockroom" style={{ width: 40, height: 40 }} />
             <h1 className="title" style={{ margin: 0 }}>Stockroom</h1>
-          </div>
+          </a>
           <p className="subtitle">
             Signed in as {username}
           </p>

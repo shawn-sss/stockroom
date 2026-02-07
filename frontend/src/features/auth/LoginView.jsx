@@ -19,10 +19,14 @@ export default function LoginView({ onLogin, busy, notice, error }) {
       ) : null}
 
       <div className="panel login-panel">
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+        <a
+          href="#/inventory"
+          style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, textDecoration: "none", color: "inherit" }}
+          title="Go to homepage"
+        >
           <img src="/logo.png" alt="Stockroom" style={{ width: 40, height: 40 }} />
           <h1 className="title" style={{ margin: 0 }}>Stockroom</h1>
-        </div>
+        </a>
         <p className="subtitle">Sign in to manage inventory and deployments.</p>
         <form onSubmit={onLogin} className="form-grid">
           <label>

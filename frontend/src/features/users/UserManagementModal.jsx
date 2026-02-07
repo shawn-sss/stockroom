@@ -221,7 +221,7 @@ export default function UserManagementModal({
                       </select>
                     </label>
                   ) : (
-                    <div className="muted" style={{ fontSize: 12, padding: "10px 12px", background: "rgba(255,255,255,0.04)", borderRadius: "10px" }}>
+                    <div className="muted" style={{ fontSize: 12, padding: "10px 12px", background: "var(--surface-soft)", borderRadius: "10px" }}>
                       Admins can only create users with the "User" role.
                     </div>
                   )}

@@ -1,3 +1,10 @@
+:root {
+  --color-blue-bell: #0597d0;
+  --color-baltic-blue: #0362a5;
+  --color-sky-blue: #70bde1;
+  --color-white: #ffffff;
+}
+
 a, 
 button:not([disabled]), 
 input[type="button"]:not([disabled]), 

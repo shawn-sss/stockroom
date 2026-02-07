@@ -1,13 +1,16 @@
 body.login-view {
-  --bg: #0b1220;
-  --border: rgba(255, 255, 255, 0.10);
-  --text: rgba(255, 255, 255, 0.92);
-  --muted: rgba(255, 255, 255, 0.65);
-  --primary: #3b82f6;
-  --primary-2: #2563eb;
+  --bg: #ffffff;
+  --border: rgba(3, 98, 165, 0.22);
+  --text: #0b2f4a;
+  --muted: rgba(11, 47, 74, 0.84);
+  --primary: var(--color-blue-bell);
+  --primary-2: var(--color-baltic-blue);
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  background: radial-gradient(1100px 600px at 10% 0%, rgba(59,130,246,0.25), transparent 55%), var(--bg);
+  background:
+    radial-gradient(1000px 540px at 6% 0%, rgba(112, 189, 225, 0.28), transparent 60%),
+    radial-gradient(900px 500px at 94% 10%, rgba(5, 151, 208, 0.16), transparent 64%),
+    var(--bg);
   color: var(--text);
   min-height: 100vh;
 }
@@ -23,7 +26,7 @@ body.login-view .app-shell {
 }
 
 body.login-view .panel {
-  background: rgba(255,255,255,0.04);
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.94), rgba(112, 189, 225, 0.12));
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 18px;
@@ -63,15 +66,15 @@ body.login-view input {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: rgba(2,6,23,0.55);
+  background: rgba(255, 255, 255, 0.94);
   color: var(--text);
   font: inherit;
   outline: none;
 }
 
 body.login-view input:focus {
-  border-color: rgba(59,130,246,0.75);
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  border-color: rgba(112, 189, 225, 0.82);
+  box-shadow: 0 0 0 3px rgba(5, 151, 208, 0.2);
 }
 
 body.login-view input[type="search"]::-webkit-search-cancel-button {
@@ -85,7 +88,7 @@ body.login-view input[type="search"]::-moz-search-cancel-button {
 body.login-view button {
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(3, 98, 165, 0.25);
   background: linear-gradient(180deg, var(--primary), var(--primary-2));
   color: white;
   font-weight: 700;
@@ -96,9 +99,9 @@ body.login-view .notice {
   margin-top: 14px;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(34,197,94,0.25);
-  background: rgba(34,197,94,0.12);
-  color: rgba(255,255,255,0.92);
+  border: 1px solid rgba(112, 189, 225, 0.5);
+  background: rgba(112, 189, 225, 0.16);
+  color: #083251;
 }
 
 body.login-view .error {
