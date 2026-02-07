@@ -70,6 +70,7 @@ export default function InventoryView({
     categoryCounts,
     selectedHistory,
     editHasChanges,
+    editIsValid,
   } = derived;
   const {
     setSearch,
@@ -850,7 +851,7 @@ export default function InventoryView({
                   />
                   <button
                     type="submit"
-                    disabled={busy || !editUnlocked || !editHasChanges}
+                    disabled={busy || !editUnlocked || !editHasChanges || !editIsValid}
                     title="Save edits"
                   >
                     Save edits

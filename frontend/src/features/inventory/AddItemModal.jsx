@@ -19,6 +19,12 @@ export default function AddItemModal({
     return null;
   }
 
+  const canSubmit =
+    addForm.category?.trim() &&
+    addForm.make?.trim() &&
+    addForm.model?.trim() &&
+    addForm.serviceTag?.trim();
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} contentClassName="modal modal-narrow">
       <div className="row modal-header">
@@ -45,7 +51,7 @@ export default function AddItemModal({
           capitalizeFirst={capitalizeFirst}
           required
         />
-        <button type="submit" disabled={busy} title="Add to inventory">
+        <button type="submit" disabled={busy || !canSubmit} title="Add to inventory">
           Add to inventory
         </button>
       </form>

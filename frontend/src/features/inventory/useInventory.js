@@ -29,6 +29,15 @@ const emptyItemForm = {
 const initialAddForm = { ...emptyItemForm };
 const initialEditForm = { ...emptyItemForm };
 const emptyQuickActionForm = { assignedUser: "", note: "" };
+const defaultDropdownState = { category: true, make: true, model: true };
+
+const hasRequiredItemFields = (form) =>
+  Boolean(
+    form?.category?.trim() &&
+      form?.make?.trim() &&
+      form?.model?.trim() &&
+      form?.serviceTag?.trim()
+  );
 
 const buildItemActionPath = (itemId, action) => {
   const normalizedId = Number(itemId);
@@ -66,8 +75,8 @@ export default function useInventory({
   const [sortDirection, setSortDirection] = useState(DEFAULT_SORT_DIRECTION);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [page, setPage] = useState(1);
-  const [useDropdowns, setUseDropdowns] = useState({ category: true, make: true, model: true });
-  const [useEditDropdowns, setUseEditDropdowns] = useState({ category: true, make: true, model: true });
+  const [useDropdowns, setUseDropdowns] = useState(defaultDropdownState);
+  const [useEditDropdowns, setUseEditDropdowns] = useState(defaultDropdownState);
   const [editUnlocked, setEditUnlocked] = useState(false);
   const [historySortDirection, setHistorySortDirection] = useState("desc");
   const itemModalMouseDown = useRef(false);
@@ -157,18 +166,18 @@ export default function useInventory({
 
   const formCategoryOptions = useMemo(() => {
     const categories = new Set();
-    items.forEach((item) => {
+    allItems.forEach((item) => {
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       if (rawCategory) {
         categories.add(rawCategory);
       }
     });
     return [...categories].sort((a, b) => a.localeCompare(b));
-  }, [items]);
+  }, [allItems]);
 
   const formMakeOptionsByCategory = useMemo(() => {
     const map = new Map();
-    items.forEach((item) => {
+    allItems.forEach((item) => {
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       const rawMake = typeof item.make === "string" ? item.make.trim() : "";
       if (!rawCategory || !rawMake) {
@@ -184,11 +193,11 @@ export default function useInventory({
       result[category] = [...makes].sort((a, b) => a.localeCompare(b));
     });
     return result;
-  }, [items]);
+  }, [allItems]);
 
   const formModelOptionsByCategoryMake = useMemo(() => {
     const map = new Map();
-    items.forEach((item) => {
+    allItems.forEach((item) => {
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       const rawMake = typeof item.make === "string" ? item.make.trim() : "";
       const rawModel = typeof item.model === "string" ? item.model.trim() : "";
@@ -213,7 +222,7 @@ export default function useInventory({
       result[category] = makesResult;
     });
     return result;
-  }, [items]);
+  }, [allItems]);
 
   useEffect(() => {
     if (!username) {
@@ -391,6 +400,9 @@ export default function useInventory({
 
   const handleAddSubmit = async (event) => {
     event.preventDefault();
+    if (!hasRequiredItemFields(addForm)) {
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -418,6 +430,7 @@ export default function useInventory({
       await loadItems(token, search.trim());
       await loadAllItems(token);
       setAddForm(initialAddForm);
+      setUseDropdowns(defaultDropdownState);
       setSelectedId(data.item.id);
       await loadItemDetail(data.item.id);
       setShowAddModal(false);
@@ -432,6 +445,9 @@ export default function useInventory({
   const handleEditSubmit = async (event) => {
     event.preventDefault();
     if (!selectedId) {
+      return;
+    }
+    if (!hasRequiredItemFields(editForm)) {
       return;
     }
     setBusy(true);
@@ -619,6 +635,8 @@ export default function useInventory({
     return hasItemChanges || hasNote;
   }, [editForm, selectedItem]);
 
+  const editIsValid = useMemo(() => hasRequiredItemFields(editForm), [editForm]);
+
   const resetSelectedItemState = () => {
     setSelectedId(null);
     setSelectedItem(null);
@@ -636,6 +654,7 @@ export default function useInventory({
   const closeAddModal = () => {
     setShowAddModal(false);
     setAddForm(initialAddForm);
+    setUseDropdowns(defaultDropdownState);
   };
 
   const resetInventoryState = () => {
@@ -657,8 +676,8 @@ export default function useInventory({
     setSortDirection(DEFAULT_SORT_DIRECTION);
     setPageSize(DEFAULT_PAGE_SIZE);
     setPage(1);
-    setUseDropdowns({ category: true, make: true, model: true });
-    setUseEditDropdowns({ category: true, make: true, model: true });
+    setUseDropdowns(defaultDropdownState);
+    setUseEditDropdowns(defaultDropdownState);
     setEditUnlocked(false);
     setHistorySortDirection("desc");
     setRetireItem(null);
@@ -707,6 +726,7 @@ export default function useInventory({
       categoryCounts,
       selectedHistory,
       editHasChanges,
+      editIsValid,
     },
     actions: {
       setSearch,
