@@ -4,50 +4,47 @@
   <img src="screenshot.jpg" alt="screenshot">
 </p>
 
-Stockroom is a lightweight inventory tracker for assets. It helps teams keep
-tabs on what is in stock, what is deployed, and who has it.
+Stockroom is a lightweight asset inventory app for tracking what is in stock, deployed, or retired, and who has each item.
 
 ## Features
 
-- Track assets with status (in stock, deployed, retired) and assignment history
-- Search, filter, sort, and paginate inventory
-- Audit trail per item (adds, edits, deploys, returns, retires, restores)
-- Role-based access (owner, admin, user) with user management and audit logs
+- Item lifecycle: add, edit, deploy, return, retire, restore
+- Search + filters + sorting + pagination
+- Per-item audit history and user-management audit logs
+- Role-based access (`owner`, `admin`, `user`)
+- Production app-shell caching via service worker
 
 ## Tech stack
 
 - Backend: FastAPI, SQLite, JWT auth
-- Frontend: React, Vite, TypeScript
+- Frontend: React + Vite + TypeScript
 
-## Setup
+## Quick start
 
-All helper scripts under `scripts/` are cross-platform and orchestrate both backend and frontend tasks (Node.js and Python 3 are required on your PATH).
+Requires Node.js and Python 3 on your PATH.
 
-### Bootstrap dependencies
-
-Installs the backend virtualenv (and Python dependencies) plus all frontend npm packages.
+Install dependencies:
 
 ```bash
 node scripts/bootstrap.js
 ```
 
-### Development
-
-Runs the backend (Uvicorn with reload) and the frontend dev server concurrently, killing any prior services bound to ports 8000/5173 first.
+Run dev:
 
 ```bash
 node scripts/run-dev.js
 ```
 
-Addresses:
-
-- Backend: http://127.0.0.1:8000
-- Frontend: http://localhost:5173
-
-### Production-style preview
-
-Builds the frontend with `VITE_API_BASE` pointing at the backend, then opens the backend/preview servers side-by-side.
+Run production-style preview:
 
 ```bash
 node scripts/run-prod.js
 ```
+
+## Default seeded users (first run)
+
+- `owner` / `owner`
+- `admin` / `admin`
+- `user` / `user`
+
+The backend starts at `http://127.0.0.1:8000` and the frontend at `http://localhost:5173` in dev mode.
