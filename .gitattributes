@@ -1,0 +1,5 @@
+# Keep operational scripts in JavaScript but exclude them from language stats.
+scripts/** linguist-detectable=false
+
+# Service worker is a static runtime asset, not app source.
+frontend/public/service-worker.js linguist-detectable=false
