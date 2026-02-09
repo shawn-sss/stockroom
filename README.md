@@ -1,7 +1,7 @@
 # Stockroom
 
 <p align="center">
-  <img src="screenshot.jpg" alt="screenshot">
+  <img width="1200" height="475" src="screenshot.jpg" alt="Screenshot">
 </p>
 
 Stockroom is a lightweight asset inventory app for tracking what is in stock, deployed, or retired, and who has each item.
