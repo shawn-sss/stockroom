@@ -15,11 +15,20 @@ function run(cmd, args, options = {}) {
   const pretty = [cmd, ...args].join(" ");
   console.log(`\n> ${pretty}`);
 
-  const result = spawnSync(cmd, args, {
-    stdio: "inherit",
-    shell: false,
-    ...options,
-  });
+  const isCmdShim =
+    process.platform === "win32" && /\.(cmd|bat)$/i.test(cmd);
+
+  const result = isCmdShim
+    ? spawnSync("cmd.exe", ["/d", "/s", "/c", cmd, ...args], {
+        stdio: "inherit",
+        shell: false,
+        ...options,
+      })
+    : spawnSync(cmd, args, {
+        stdio: "inherit",
+        shell: false,
+        ...options,
+      });
 
   if (result.error) throw result.error;
   if (result.status !== 0) {

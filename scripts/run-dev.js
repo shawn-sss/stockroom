@@ -5,6 +5,7 @@
 const { spawnSync, spawn } = require("node:child_process");
 const path = require("node:path");
 const fs = require("node:fs");
+const os = require("node:os");
 
 const PORT_FRONTEND = 5173;
 const PORT_BACKEND = 8000;
@@ -40,11 +41,20 @@ function run(cmd, args, options = {}) {
   const pretty = [cmd, ...args].join(" ");
   console.log(`\n> ${pretty}`);
 
-  const result = spawnSync(cmd, args, {
-    stdio: "inherit",
-    shell: false,
-    ...options,
-  });
+  const isCmdShim =
+    process.platform === "win32" && /\.(cmd|bat)$/i.test(cmd);
+
+  const result = isCmdShim
+    ? spawnSync("cmd.exe", ["/d", "/s", "/c", cmd, ...args], {
+        stdio: "inherit",
+        shell: false,
+        ...options,
+      })
+    : spawnSync(cmd, args, {
+        stdio: "inherit",
+        shell: false,
+        ...options,
+      });
 
   if (result.error) throw result.error;
   if (result.status !== 0) {
@@ -53,7 +63,14 @@ function run(cmd, args, options = {}) {
 }
 
 function commandExists(cmd) {
-  const probe = spawnSync(cmd, ["--version"], { stdio: "ignore", shell: false });
+  const isCmdShim =
+    process.platform === "win32" && /\.(cmd|bat)$/i.test(cmd);
+  const probe = isCmdShim
+    ? spawnSync("cmd.exe", ["/d", "/s", "/c", cmd, "--version"], {
+        stdio: "ignore",
+        shell: false,
+      })
+    : spawnSync(cmd, ["--version"], { stdio: "ignore", shell: false });
   return probe.status === 0;
 }
 
@@ -147,10 +164,20 @@ function killPort(port) {
 }
 
 function runInTerminalOrLog(title, cwd, commandString, extraEnv = {}) {
-  const root = process.cwd();
   if (process.platform === "win32") {
-    const inner = `cd /d "${cwd}" && ${commandString}`;
-    spawn("cmd.exe", ["/c", "start", title, "cmd.exe", "/k", inner], {
+    const scriptPath = path.join(
+      os.tmpdir(),
+      `stockroom-${title}-${Date.now()}.cmd`,
+    );
+    const script = [
+      "@echo off",
+      `title ${title}`,
+      `cd /d "${cwd}"`,
+      commandString,
+    ].join("\r\n");
+    fs.writeFileSync(scriptPath, script, "utf8");
+
+    spawn("cmd.exe", ["/d", "/s", "/c", "start", "\"\"", "cmd.exe", "/k", scriptPath], {
       stdio: "ignore",
       shell: false,
       detached: true,
@@ -216,7 +243,10 @@ function main() {
   }
 
   if (!commandExists(npmCmd())) {
-    die("npm not found. Install Node.js then try again.");
+    if (process.platform === "win32" && commandExists("npm")) {
+    } else {
+      die("npm not found. Install Node.js then try again.");
+    }
   }
 
   killPort(PORT_FRONTEND);
