@@ -65,6 +65,7 @@ export default function App() {
     search,
     filterStatus,
     filterCategory,
+    hideRetired,
     sortField,
     sortDirection,
     pageSize,
@@ -87,6 +88,7 @@ export default function App() {
     if (search) params.set("q", search);
     if (filterStatus && filterStatus !== DEFAULT_FILTER_STATUS) params.set("status", filterStatus);
     if (filterCategory && filterCategory !== DEFAULT_FILTER_CATEGORY) params.set("category", filterCategory);
+    if (hideRetired) params.set("hideRetired", "1");
     if (sortField && sortField !== DEFAULT_SORT_FIELD) params.set("sort", sortField);
     if (sortDirection && sortDirection !== DEFAULT_SORT_DIRECTION) params.set("dir", sortDirection);
     if (pageSize !== DEFAULT_PAGE_SIZE) params.set("pageSize", String(pageSize));
@@ -130,6 +132,10 @@ export default function App() {
       }
       if (params.has("category")) {
         inventory.actions.setFilterCategory(params.get("category") || DEFAULT_FILTER_CATEGORY);
+      }
+      if (params.has("hideRetired")) {
+        const hideRetiredParam = params.get("hideRetired");
+        inventory.actions.setHideRetired(hideRetiredParam === "1" || hideRetiredParam === "true");
       }
       if (params.has("sort")) {
         inventory.actions.setSortField(params.get("sort") || DEFAULT_SORT_FIELD);
@@ -190,6 +196,13 @@ export default function App() {
         const item = await inventory.actions.loadItemDetail(itemId);
         const action = segments[3];
         if (action === "quick") {
+          const quickCategory = item?.category ? String(item.category).trim().toLowerCase() : "";
+          if (quickCategory === "cable" || quickCategory === "cables") {
+            inventory.actions.setQuickActionItem(null);
+            inventory.actions.setRetireItem(null);
+            inventory.actions.setShowItemModal(true);
+            return;
+          }
           inventory.actions.setQuickActionItem(item);
           inventory.actions.setQuickActionForm(inventory.constants.createQuickActionForm());
           inventory.actions.setRetireItem(null);
@@ -198,7 +211,7 @@ export default function App() {
         }
         if (action === "retire") {
           inventory.actions.setRetireItem(item);
-          inventory.actions.setRetireForm({ note: "" });
+          inventory.actions.setRetireForm({ note: "", zeroStock: false });
           inventory.actions.setQuickActionItem(null);
           inventory.actions.setShowItemModal(true);
           return;
@@ -283,6 +296,7 @@ export default function App() {
     retireItem,
     filterStatus,
     filterCategory,
+    hideRetired,
     sortField,
     sortDirection,
     pageSize,
@@ -320,6 +334,7 @@ export default function App() {
       search,
       filterStatus,
       filterCategory,
+      hideRetired,
       sortField,
       sortDirection,
       pageSize,
@@ -332,6 +347,7 @@ export default function App() {
     search,
     filterStatus,
     filterCategory,
+    hideRetired,
     sortField,
     sortDirection,
     pageSize,

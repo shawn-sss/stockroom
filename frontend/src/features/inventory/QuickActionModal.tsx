@@ -1,5 +1,6 @@
 import Modal from "../../components/Modal";
 import { STATUS_DEPLOYED } from "../../constants/status";
+import { isCableCategory } from "./cable";
 
 export default function QuickActionModal({
   quickActionItem,
@@ -10,6 +11,9 @@ export default function QuickActionModal({
   busy,
 }) {
   if (!quickActionItem) {
+    return null;
+  }
+  if (isCableCategory(quickActionItem.category)) {
     return null;
   }
 

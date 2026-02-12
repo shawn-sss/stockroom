@@ -41,7 +41,9 @@ export default function Modal({
           event.stopPropagation();
         }}
       >
-        {children}
+        <div className="modal-scroll-body">
+          {children}
+        </div>
       </div>
     </div>
   );

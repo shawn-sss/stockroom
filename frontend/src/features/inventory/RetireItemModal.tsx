@@ -1,5 +1,6 @@
 import Modal from "../../components/Modal";
 import { STATUS_RETIRED } from "../../constants/status";
+import { formatCableEnds, formatCableLength, isCableCategory } from "./cable";
 
 export default function RetireItemModal({
   item,
@@ -15,7 +16,12 @@ export default function RetireItemModal({
 
   const isRetired = item.status === STATUS_RETIRED;
   const title = isRetired ? "Restore item" : "Retire item";
-  const subtitle = `${item.category} - ${item.make} ${item.model}`;
+  const isCable = isCableCategory(item.category);
+  const cableQuantity = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 0;
+  const canZeroCableStock = !isRetired && isCable && cableQuantity > 0;
+  const subtitle = isCableCategory(item.category)
+    ? `${item.category} - ${formatCableEnds(item.make)} (${formatCableLength(item.model)})`
+    : `${item.category} - ${item.make} ${item.model}`;
   const notePlaceholder = isRetired
     ? "Optional note about restoring"
     : "Optional note about retiring";
@@ -44,6 +50,17 @@ export default function RetireItemModal({
             onChange={(event) => setForm({ ...form, note: event.target.value })}
           />
         </label>
+        {canZeroCableStock ? (
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              name="retireZeroStock"
+              type="checkbox"
+              checked={Boolean(form.zeroStock)}
+              onChange={(event) => setForm({ ...form, zeroStock: event.target.checked })}
+            />
+            <span>Set cable stock quantity to 0 on retire</span>
+          </label>
+        ) : null}
         <button type="submit" disabled={busy} title={isRetired ? "Restore to in stock" : "Mark as retired"}>
           {isRetired ? "Restore to in stock" : "Mark as retired"}
         </button>

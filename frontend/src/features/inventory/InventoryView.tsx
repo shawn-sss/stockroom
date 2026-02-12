@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   capitalizeFirst,
   formatDate,
@@ -9,9 +9,12 @@ import {
   STATUS_RETIRED,
 } from "../../constants/status";
 import AddItemModal from "./AddItemModal";
+import CableOverviewModal from "./CableOverviewModal";
 import ItemFormFields from "./ItemFormFields";
 import QuickActionModal from "./QuickActionModal";
 import RetireItemModal from "./RetireItemModal";
+import SetCableQuantityModal from "./SetCableQuantityModal";
+import { formatCableEnds, formatCableLength, isCableCategory, parseQuantityValue } from "./cable";
 
 export default function InventoryView({
   username,
@@ -44,6 +47,7 @@ export default function InventoryView({
     quickActionForm,
     filterStatus,
     filterCategory,
+    hideRetired,
     sortField,
     sortDirection,
     pageSize,
@@ -53,6 +57,10 @@ export default function InventoryView({
     historySortDirection,
     retireItem,
     retireForm,
+    showCableModal,
+    cableCategory,
+    cableSummaryItems,
+    cableSummaryHistory,
   } = state;
   const {
     filteredAndSortedItems,
@@ -64,6 +72,7 @@ export default function InventoryView({
     pagedItems,
     uniqueCategories,
     uniqueStatuses,
+    hasRetiredItems,
     formCategoryOptions,
     formMakeOptionsByCategory,
     formModelOptionsByCategoryMake,
@@ -81,6 +90,7 @@ export default function InventoryView({
     setQuickActionForm,
     setFilterStatus,
     setFilterCategory,
+    setHideRetired,
     setSortField,
     setSortDirection,
     setPageSize,
@@ -101,12 +111,22 @@ export default function InventoryView({
     closeItemModal,
     closeAddModal,
     loadItemDetail,
+    openCableModal,
+    closeCableModal,
+    adjustCableQuantity,
+    applyCableQuantityChange,
   } = actions;
 
   const isNewestFirst = useMemo(
     () => sortDirection === "desc",
     [sortDirection]
   );
+  const [setCableItem, setSetCableItem] = useState(null);
+  const [setCableForm, setSetCableForm] = useState({
+    operation: "set",
+    quantity: "",
+    note: "",
+  });
 
   return (
     <div className="app-shell">
@@ -212,6 +232,18 @@ export default function InventoryView({
           background: radial-gradient(120px 80px at 10% 0%, rgba(112, 189, 225, 0.24), rgba(255,255,255,0.9));
           box-shadow: inset 0 0 0 1px rgba(255,255,255,0.75);
         }
+        .category-count-card.clickable {
+          cursor: pointer;
+          transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+        }
+        .category-count-card.clickable:hover {
+          transform: translateY(-1px);
+          border-color: rgba(112, 189, 225, 0.78);
+        }
+        .category-count-card.active {
+          border-color: rgba(112, 189, 225, 0.9);
+          box-shadow: 0 0 0 2px rgba(5, 151, 208, 0.22), inset 0 0 0 1px rgba(255,255,255,0.75);
+        }
         .category-count-number { font-size: 24px; font-weight: 700; letter-spacing: 0.3px; }
         .category-count-name {
           margin-top: 4px;
@@ -249,6 +281,20 @@ export default function InventoryView({
         }
         input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); }
         input::placeholder, textarea::placeholder { color: rgba(11, 47, 74, 0.62); }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        textarea:-webkit-autofill,
+        textarea:-webkit-autofill:hover,
+        textarea:-webkit-autofill:focus,
+        select:-webkit-autofill,
+        select:-webkit-autofill:hover,
+        select:-webkit-autofill:focus {
+          -webkit-text-fill-color: var(--text);
+          -webkit-box-shadow: 0 0 0px 1000px var(--field-bg) inset;
+          box-shadow: 0 0 0px 1000px var(--field-bg) inset;
+          transition: background-color 9999s ease-in-out 0s;
+        }
         input:not([type="checkbox"]):focus, textarea:focus, select:focus { border-color: rgba(112, 189, 225, 0.82); box-shadow: 0 0 0 3px rgba(5, 151, 208, 0.2); }
         input.input-locked,
         input:disabled,
@@ -282,16 +328,17 @@ export default function InventoryView({
           margin-top: 14px;
           padding: 10px 12px;
           border-radius: 12px;
-          border: 1px solid rgba(112, 189, 225, 0.5);
-          background: rgba(112, 189, 225, 0.16);
-          color: #083251;
+          border: 1px solid rgba(112, 189, 225, 0.65);
+          background: rgba(5, 151, 208, 0.92);
+          color: #ffffff;
         }
         .error {
           margin-top: 14px;
           padding: 10px 12px;
           border-radius: 12px;
-          border: 1px solid rgba(239,68,68,0.25);
-          background: rgba(239,68,68,0.12);
+          border: 1px solid rgba(248, 113, 113, 0.55);
+          background: rgba(220, 38, 38, 0.92);
+          color: #ffffff;
         }
         .toast-stack {
           position: fixed;
@@ -326,9 +373,12 @@ export default function InventoryView({
           border: 1px solid var(--border);
           border-radius: 18px;
           box-shadow: 0 24px 52px rgba(3,98,165,0.2);
-          padding: 16px;
+          overflow: hidden;
+        }
+        .modal-scroll-body {
           max-height: calc(100vh - 96px);
           overflow: auto;
+          padding: 16px 12px 16px 16px;
         }
         .modal-narrow {
           width: min(640px, 100%);
@@ -492,15 +542,58 @@ export default function InventoryView({
             ) : (
               <div className="category-count-grid">
                 {categoryCounts.map(({ category, count, inStock, deployed, retired }) => (
-                  <div key={category} className="category-count-card">
-                    <div className="category-count-number">{count}</div>
+                  <div
+                    key={category}
+                    className={`category-count-card clickable ${filterCategory === category ? "active" : ""}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      if (isCableCategory(category)) {
+                        openCableModal(category);
+                        return;
+                      }
+                      setFilterCategory((prev) => (prev === category ? "all" : category));
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        if (isCableCategory(category)) {
+                          openCableModal(category);
+                          return;
+                        }
+                        setFilterCategory((prev) => (prev === category ? "all" : category));
+                      }
+                    }}
+                    title={
+                      isCableCategory(category)
+                        ? "Open cable stock overview"
+                        : filterCategory === category
+                        ? "Clear category filter"
+                        : `Filter by ${category}`
+                    }
+                  >
+                    <div className="category-count-number">
+                      {isCableCategory(category) ? inStock : count}
+                    </div>
                     <div className="category-count-name">{category}</div>
                     <div className="category-count-meta">
-                      In stock: {inStock}
-                      <br />
-                      Deployed: {deployed}
-                      <br />
-                      Retired: {retired}
+                      {isCableCategory(category) ? (
+                        <>
+                          Click this card
+                          <br />
+                          to open Cable
+                          <br />
+                          Management
+                        </>
+                      ) : (
+                        <>
+                          In stock: {inStock}
+                          <br />
+                          Deployed: {deployed}
+                          <br />
+                          Retired: {retired}
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -611,6 +704,21 @@ export default function InventoryView({
               </select>
             </label>
           </div>
+          {hasRetiredItems && filterStatus === "all" ? (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -2 }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={hideRetired}
+                  onChange={(event) => setHideRetired(event.target.checked)}
+                  title="Hide retired items when Status is All"
+                />
+                <span className="muted" style={{ fontSize: 12 }}>
+                  Hide retired (All)
+                </span>
+              </label>
+            </div>
+          ) : null}
           {filteredAndSortedItems.length === 0 ? (
             <div style={{ textAlign: "center", padding: "40px 20px" }}>
               <p className="muted">No items in inventory yet.</p>
@@ -641,7 +749,9 @@ export default function InventoryView({
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, display: "flex", alignItems: "center" }}>
                         <span>
-                          {item.category} - {item.make} {item.model}
+                          {isCableCategory(item.category)
+                            ? `${item.category} - ${formatCableEnds(item.make)} (${formatCableLength(item.model)})`
+                            : `${item.category} - ${item.make} ${item.model}`}
                         </span>
                         <span
                           className={`badge ${helpers.getStatusBadgeClass(item.status)}`}
@@ -655,6 +765,10 @@ export default function InventoryView({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (isCableCategory(item.category)) {
+                          openCableModal(item.category);
+                          return;
+                        }
                         if (item.status === STATUS_RETIRED) {
                           return;
                         }
@@ -665,6 +779,9 @@ export default function InventoryView({
                       className={item.status !== STATUS_IN_STOCK ? "secondary" : ""}
                       style={{ padding: "6px 10px", fontSize: "12px" }}
                       title={
+                        isCableCategory(item.category)
+                          ? "Cables use quantity controls"
+                          :
                         item.status === STATUS_RETIRED
                           ? "Item is retired"
                           : item.status === STATUS_DEPLOYED
@@ -672,7 +789,9 @@ export default function InventoryView({
                           : "Deploy item"
                       }
                     >
-                      {item.status === STATUS_RETIRED
+                      {isCableCategory(item.category)
+                        ? "Cables"
+                        : item.status === STATUS_RETIRED
                         ? "Retired"
                         : item.status === STATUS_DEPLOYED
                         ? "Return"
@@ -680,12 +799,16 @@ export default function InventoryView({
                     </button>
                   </div>
                   <div className="meta-stack item-card-meta">
-                    <div className="muted meta-line">Service tag: {item.service_tag}</div>
+                    <div className="muted meta-line">
+                      {isCableCategory(item.category)
+                        ? `Quantity: ${parseQuantityValue(item.quantity, 0)}`
+                        : `Service tag: ${item.service_tag}`}
+                    </div>
                     <div className="muted meta-line">Created: {formatDate(item.created_at)}</div>
                     <div className="muted meta-line">
                       Updated: {formatDate(item.updated_at || item.created_at)}
                     </div>
-                    {item.assigned_user ? (
+                    {item.assigned_user && !isCableCategory(item.category) ? (
                       <div className="muted meta-line">Assigned: {item.assigned_user}</div>
                     ) : null}
                   </div>
@@ -760,10 +883,15 @@ export default function InventoryView({
               event.stopPropagation();
             }}
           >
+            <div className="modal-scroll-body">
             <div className="row modal-header">
               <div>
                 <h2 style={{ margin: "0 0 4px", display: "flex", alignItems: "center", gap: 10 }}>
-                  <span>{selectedItem.category} - {selectedItem.make} {selectedItem.model}</span>
+                  <span>
+                    {isCableCategory(selectedItem.category)
+                      ? `${selectedItem.category} - ${formatCableEnds(selectedItem.make)} (${formatCableLength(selectedItem.model)})`
+                      : `${selectedItem.category} - ${selectedItem.make} ${selectedItem.model}`}
+                  </span>
                   <span
                     className={`badge ${helpers.getStatusBadgeClass(selectedItem.status)}`}
                   >
@@ -772,7 +900,7 @@ export default function InventoryView({
                 </h2>
                 <div className="meta-stack">
                   <div className="row" style={{ justifyContent: "flex-start", gap: 8 }}>
-                    {selectedItem.status !== STATUS_RETIRED ? (
+                    {selectedItem.status !== STATUS_RETIRED && !isCableCategory(selectedItem.category) ? (
                       <button
                         type="button"
                         onClick={(event) => {
@@ -791,11 +919,33 @@ export default function InventoryView({
                         {selectedItem.status === STATUS_DEPLOYED ? "Return" : "Deploy"}
                       </button>
                     ) : null}
-                    <span className="muted">
-                      {selectedItem.assigned_user
-                        ? `Assigned to ${selectedItem.assigned_user}`
-                        : "Unassigned"}
-                    </span>
+                    {!isCableCategory(selectedItem.category) ? (
+                      <span className="muted">
+                        {selectedItem.assigned_user
+                          ? `Assigned to ${selectedItem.assigned_user}`
+                          : "Unassigned"}
+                      </span>
+                    ) : null}
+                    {isCableCategory(selectedItem.category) ? (
+                      <div className="actions" style={{ justifyContent: "flex-start" }}>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={async () => {
+                            const targetCategory = selectedItem.category;
+                            await openCableModal(targetCategory);
+                            closeItemModal();
+                          }}
+                          style={{ padding: "4px 8px", fontSize: "11px" }}
+                          title="Cable Management"
+                        >
+                          Cable Management
+                        </button>
+                        <span className="muted">
+                          Qty: {parseQuantityValue(selectedItem.quantity, 0)}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="muted">Created {formatDate(selectedItem.created_at)}</div>
                   <div className="muted">
@@ -827,7 +977,7 @@ export default function InventoryView({
                       className="secondary"
                       onClick={() => {
                         setRetireItem(selectedItem);
-                        setRetireForm({ note: "" });
+                        setRetireForm({ note: "", zeroStock: false });
                       }}
                       disabled={selectedItem.status === STATUS_DEPLOYED}
                       aria-label={selectedItem.status === STATUS_RETIRED ? "Restore item" : "Retire item"}
@@ -929,6 +1079,7 @@ export default function InventoryView({
                 )}
               </div>
             </div>
+            </div>
           </div>
         </div>
       ) : null}
@@ -960,15 +1111,68 @@ export default function InventoryView({
         busy={busy}
       />
 
+      <CableOverviewModal
+        isOpen={showCableModal}
+        category={cableCategory}
+        items={cableSummaryItems}
+        history={cableSummaryHistory}
+        onClose={closeCableModal}
+        onAdjustQuantity={adjustCableQuantity}
+        onRequestSetQuantity={(item) => {
+          setSetCableItem(item);
+          setSetCableForm({
+            operation: "set",
+            quantity: String(parseQuantityValue(item.quantity, 0)),
+            note: "",
+          });
+        }}
+        onOpenItem={async (itemId) => {
+          setSelectedId(itemId);
+          await loadItemDetail(itemId);
+          setShowItemModal(true);
+          closeCableModal();
+        }}
+        onRequestRestore={(item) => {
+          setRetireItem(item);
+          setRetireForm({ note: "", zeroStock: false });
+        }}
+        busy={busy}
+      />
+
       <RetireItemModal
         item={retireItem}
         form={retireForm}
         setForm={setRetireForm}
         onClose={() => {
           setRetireItem(null);
-          setRetireForm({ note: "" });
+          setRetireForm({ note: "", zeroStock: false });
         }}
         onSubmit={handleRetireSubmit}
+        busy={busy}
+      />
+
+      <SetCableQuantityModal
+        item={setCableItem}
+        form={setCableForm}
+        setForm={setSetCableForm}
+        onClose={() => {
+          setSetCableItem(null);
+          setSetCableForm({ operation: "set", quantity: "", note: "" });
+        }}
+        onSubmit={async () => {
+          if (!setCableItem) {
+            return;
+          }
+          await applyCableQuantityChange(
+            setCableItem.id,
+            setCableForm.operation,
+            setCableForm.quantity,
+            parseQuantityValue(setCableItem.quantity, 0),
+            setCableForm.note
+          );
+          setSetCableItem(null);
+          setSetCableForm({ operation: "set", quantity: "", note: "" });
+        }}
         busy={busy}
       />
     </div>

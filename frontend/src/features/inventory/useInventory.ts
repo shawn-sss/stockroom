@@ -17,6 +17,13 @@ import {
   DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_FIELD,
 } from "../../constants/inventory";
+import {
+  formatCableLength,
+  hasCompleteCableEnds,
+  isCableCategory,
+  normalizeCableEnds,
+  parseQuantityValue,
+} from "./cable";
 
 const emptyItemForm = {
   category: "",
@@ -29,17 +36,25 @@ const emptyItemForm = {
 const createItemForm = () => ({ ...emptyItemForm });
 const createQuickActionForm = () => ({ assignedUser: "", note: "" });
 const createDropdownState = () => ({ category: true, make: true, model: true });
-const createRetireForm = () => ({ note: "" });
+const createRetireForm = () => ({ note: "", zeroStock: false });
 type InventoryPreferences = {
+  search: string;
   sortField: string;
   sortDirection: string;
   filterStatus: string;
   filterCategory: string;
   pageSize: number;
+  hideRetired: boolean;
 };
 
 const hasRequiredItemFields = (form) =>
-  Boolean(
+  isCableCategory(form?.category)
+    ? Boolean(
+        form?.category?.trim() &&
+          hasCompleteCableEnds(form?.make) &&
+          form?.model?.trim()
+      )
+    : Boolean(
     form?.category?.trim() &&
       form?.make?.trim() &&
       form?.model?.trim() &&
@@ -78,6 +93,7 @@ export default function useInventory({
   const [quickActionForm, setQuickActionForm] = useState(createQuickActionForm);
   const [filterStatus, setFilterStatus] = useState(DEFAULT_FILTER_STATUS);
   const [filterCategory, setFilterCategory] = useState(DEFAULT_FILTER_CATEGORY);
+  const [hideRetired, setHideRetired] = useState(false);
   const [sortField, setSortField] = useState(DEFAULT_SORT_FIELD);
   const [sortDirection, setSortDirection] = useState(DEFAULT_SORT_DIRECTION);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -90,6 +106,10 @@ export default function useInventory({
   const prefsLoadedForUser = useRef(null);
   const [retireItem, setRetireItem] = useState(null);
   const [retireForm, setRetireForm] = useState(createRetireForm);
+  const [showCableModal, setShowCableModal] = useState(false);
+  const [cableCategory, setCableCategory] = useState("Cables");
+  const [cableSummaryItems, setCableSummaryItems] = useState([]);
+  const [cableSummaryHistory, setCableSummaryHistory] = useState([]);
 
   const getApiFailure = async (res, fallbackMessage) => {
     let data = null;
@@ -133,6 +153,9 @@ export default function useInventory({
     if (filterCategory !== "all") {
       filtered = filtered.filter(item => item.category === filterCategory);
     }
+    if (hideRetired && filterStatus === DEFAULT_FILTER_STATUS) {
+      filtered = filtered.filter(item => item.status !== STATUS_RETIRED);
+    }
 
     filtered.sort((a, b) => {
       let timeA, timeB;
@@ -149,7 +172,7 @@ export default function useInventory({
     });
 
     return filtered;
-  }, [items, filterStatus, filterCategory, sortField, sortDirection]);
+  }, [items, filterStatus, filterCategory, hideRetired, sortField, sortDirection]);
 
   const totalItems = filteredAndSortedItems.length;
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(totalItems / pageSize));
@@ -192,6 +215,10 @@ export default function useInventory({
     });
     return [...statuses].sort((a, b) => a.localeCompare(b));
   }, [allItems]);
+  const hasRetiredItems = useMemo(
+    () => allItems.some((item) => item.status === STATUS_RETIRED),
+    [allItems]
+  );
 
   const formCategoryOptions = useMemo(() => {
     const categories = new Set<string>();
@@ -289,11 +316,14 @@ export default function useInventory({
     const nextPageSize = validPageSizes.has(prefs.pageSize)
       ? prefs.pageSize
       : DEFAULT_PAGE_SIZE;
+    const nextSearch = typeof prefs.search === "string" ? prefs.search : "";
+    setSearch(nextSearch);
     setSortField(nextSortField);
     setSortDirection(nextSortDirection);
     setFilterStatus(nextFilterStatus);
     setFilterCategory(nextFilterCategory);
     setPageSize(nextPageSize);
+    setHideRetired(Boolean(prefs.hideRetired));
     prefsLoadedForUser.current = username;
   }, [username, uniqueCategories, uniqueStatuses]);
 
@@ -303,14 +333,16 @@ export default function useInventory({
     }
     const storageKey = `stockroom:inventory-preferences:${username}`;
     const payload = {
+      search,
       sortField,
       sortDirection,
       filterStatus,
       filterCategory,
       pageSize,
+      hideRetired,
     };
     localStorage.setItem(storageKey, JSON.stringify(payload));
-  }, [username, sortField, sortDirection, filterStatus, filterCategory, pageSize]);
+  }, [username, search, sortField, sortDirection, filterStatus, filterCategory, pageSize, hideRetired]);
 
   useEffect(() => {
     if (filterCategory !== DEFAULT_FILTER_CATEGORY && !uniqueCategories.includes(filterCategory)) {
@@ -324,11 +356,12 @@ export default function useInventory({
       const rawCategory = typeof item.category === "string" ? item.category.trim() : "";
       const category = rawCategory || "Uncategorized";
       const current = counts.get(category) || { count: 0, inStock: 0, deployed: 0, retired: 0 };
+      const quantity = isCableCategory(category) ? parseQuantityValue(item.quantity, 0) : 1;
       const next = {
-        count: current.count + 1,
-        inStock: current.inStock + (item.status === STATUS_IN_STOCK ? 1 : 0),
-        deployed: current.deployed + (item.status === STATUS_DEPLOYED ? 1 : 0),
-        retired: current.retired + (item.status === STATUS_RETIRED ? 1 : 0),
+        count: current.count + quantity,
+        inStock: current.inStock + (item.status === STATUS_IN_STOCK ? quantity : 0),
+        deployed: current.deployed + (item.status === STATUS_DEPLOYED ? quantity : 0),
+        retired: current.retired + (item.status === STATUS_RETIRED ? quantity : 0),
       };
       counts.set(category, next);
     });
@@ -433,16 +466,40 @@ export default function useInventory({
       return;
     }
     await runBusyAction(async () => {
+      const normalizedCategory = capitalizeWords(addForm.category);
+      const normalizedEnds = normalizeCableEnds(addForm.make).toLowerCase();
+      const normalizedLength = formatCableLength(addForm.model).toLowerCase();
+      if (isCableCategory(normalizedCategory)) {
+        const existingCable = allItems.find((item) => {
+          const itemCategory = (item.category || "").trim();
+          const itemEnds = normalizeCableEnds(item.make).toLowerCase();
+          const itemLength = formatCableLength(item.model).toLowerCase();
+          return (
+            isCableCategory(itemCategory) &&
+            itemEnds === normalizedEnds &&
+            itemLength === normalizedLength
+          );
+        });
+        if (existingCable) {
+          throw new Error(
+            "This cable already exists with the same ends and length. Use Cable Manager to adjust quantity (+/-) instead."
+          );
+        }
+      }
       const res = await apiRequest(
         "/items",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            category: capitalizeWords(addForm.category),
-            make: addForm.make,
-            model: addForm.model,
-            service_tag: addForm.serviceTag,
+            category: normalizedCategory,
+            make: isCableCategory(normalizedCategory)
+              ? normalizeCableEnds(addForm.make)
+              : addForm.make,
+            model: isCableCategory(normalizedCategory)
+              ? formatCableLength(addForm.model)
+              : addForm.model,
+            service_tag: addForm.serviceTag || null,
             row: addForm.row || null,
             note: addForm.note || null,
           }),
@@ -455,6 +512,9 @@ export default function useInventory({
       const data = await res.json();
       await loadItems(token, search.trim());
       await loadAllItems(token);
+      if (isCableCategory(data?.item?.category)) {
+        await loadCableSummary(data.item.category);
+      }
       setAddForm(createItemForm());
       setUseDropdowns(createDropdownState());
       setSelectedId(data.item.id);
@@ -480,9 +540,13 @@ export default function useInventory({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             category: capitalizeWords(editForm.category),
-            make: editForm.make,
-            model: editForm.model,
-            service_tag: editForm.serviceTag,
+            make: isCableCategory(editForm.category)
+              ? normalizeCableEnds(editForm.make)
+              : editForm.make,
+            model: isCableCategory(editForm.category)
+              ? formatCableLength(editForm.model)
+              : editForm.model,
+            service_tag: editForm.serviceTag || null,
             row: editForm.row || null,
             note: editForm.note || null,
           }),
@@ -492,8 +556,12 @@ export default function useInventory({
       if (!res.ok) {
         throw new Error(await getApiFailure(res, "Failed to update item"));
       }
+      const data = await res.json();
       await loadItems(token, search.trim());
       await loadAllItems(token);
+      if (isCableCategory(data?.item?.category || editForm.category)) {
+        await loadCableSummary(data?.item?.category || cableCategory);
+      }
       await loadItemDetail(selectedId);
       setNotice("Edits saved");
     });
@@ -518,15 +586,22 @@ export default function useInventory({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ note: retireForm.note || null }),
+          body: JSON.stringify({
+            note: retireForm.note || null,
+            zero_stock: isRetired ? false : Boolean(retireForm.zeroStock),
+          }),
         },
         token
       );
       if (!res.ok) {
         throw new Error(await getApiFailure(res, "Failed to update status"));
       }
+      await res.json();
       await loadItems(token, search.trim());
       await loadAllItems(token);
+      if (isCableCategory(retireItem.category)) {
+        await loadCableSummary(retireItem.category || cableCategory);
+      }
       if (selectedId === retireItem.id) {
         await loadItemDetail(retireItem.id);
       }
@@ -539,6 +614,10 @@ export default function useInventory({
   const handleQuickActionSubmit = async (event) => {
     event.preventDefault();
     if (!quickActionItem) {
+      return;
+    }
+    if (isCableCategory(quickActionItem.category)) {
+      setError("Use cable quantity controls instead of deploy/return");
       return;
     }
     await runBusyAction(async () => {
@@ -584,12 +663,145 @@ export default function useInventory({
     });
   };
 
+  const loadCableSummary = async (category = cableCategory) => {
+    const normalizedCategory = capitalizeWords(category || "Cables");
+    const res = await apiRequest(
+      `/items/category/${encodeURIComponent(normalizedCategory)}/summary`,
+      {},
+      token
+    );
+    if (!res.ok) {
+      throw new Error(await getApiFailure(res, "Failed to load cable summary"));
+    }
+    const data = await res.json();
+    setCableCategory(data.category || normalizedCategory);
+    setCableSummaryItems(data.items || []);
+    setCableSummaryHistory(data.history || []);
+  };
+
+  const openCableModal = async (category = "Cables") => {
+    await runBusyAction(async () => {
+      await loadCableSummary(category);
+      setShowCableModal(true);
+    });
+  };
+
+  const closeCableModal = () => {
+    setShowCableModal(false);
+    setCableSummaryItems([]);
+    setCableSummaryHistory([]);
+  };
+
+  const adjustCableQuantity = async (itemId, delta, note = "") => {
+    await runBusyAction(async () => {
+      const res = await apiRequest(
+        `/items/${itemId}/quantity`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ delta, note: note || null }),
+        },
+        token
+      );
+      if (!res.ok) {
+        throw new Error(await getApiFailure(res, "Failed to adjust cable quantity"));
+      }
+      await loadItems(token, search.trim());
+      await loadAllItems(token);
+      await loadCableSummary(cableCategory);
+      if (selectedId === itemId) {
+        await loadItemDetail(itemId);
+      }
+      setNotice("Cable quantity updated");
+    });
+  };
+
+  const setCableQuantity = async (itemId, targetQuantity, currentQuantity, note = "") => {
+    const nextQuantity = parseQuantityValue(targetQuantity, -1);
+    if (nextQuantity < 0) {
+      setError("Quantity must be 0 or greater");
+      return;
+    }
+    const current = Number.isFinite(Number(currentQuantity))
+      ? parseQuantityValue(currentQuantity, 0)
+      : parseQuantityValue(
+          (allItems.find((item) => item.id === itemId) || {}).quantity,
+          0
+        );
+    const delta = nextQuantity - current;
+    if (delta === 0) {
+      return;
+    }
+    await adjustCableQuantity(itemId, delta, note);
+  };
+
+  const restoreCableItem = async (itemId) => {
+    await runBusyAction(async () => {
+      const res = await apiRequest(
+        `/items/${itemId}/restore`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: null }),
+        },
+        token
+      );
+      if (!res.ok) {
+        throw new Error(await getApiFailure(res, "Failed to restore cable"));
+      }
+      await loadItems(token, search.trim());
+      await loadAllItems(token);
+      const restoredData = await res.json();
+      await loadCableSummary(restoredData?.item?.category || cableCategory);
+      if (selectedId === itemId) {
+        await loadItemDetail(itemId);
+      }
+      setNotice("Cable restored");
+    });
+  };
+
+  const applyCableQuantityChange = async (
+    itemId,
+    operation,
+    amount,
+    currentQuantity,
+    note = ""
+  ) => {
+    const parsedAmount = parseQuantityValue(amount, -1);
+    if (parsedAmount < 0) {
+      setError("Amount must be 0 or greater");
+      return;
+    }
+    const current = parseQuantityValue(currentQuantity, 0);
+    if (operation === "set") {
+      await setCableQuantity(itemId, parsedAmount, current, note);
+      return;
+    }
+    if (operation === "add") {
+      if (parsedAmount === 0) {
+        return;
+      }
+      await adjustCableQuantity(itemId, parsedAmount, note);
+      return;
+    }
+    if (operation === "subtract") {
+      if (parsedAmount === 0) {
+        return;
+      }
+      await adjustCableQuantity(itemId, -parsedAmount, note);
+      return;
+    }
+    setError("Invalid quantity operation");
+  };
+
   const selectedHistory = useMemo(() => {
+    const selectedIsCable = isCableCategory(selectedItem?.category);
     const labels = {
       category: "Category",
       make: "Make",
-      model: "Model",
+      model: selectedIsCable ? "Length (ft)" : "Model",
       service_tag: "Service tag",
+      quantity: "Quantity",
       row: "Row",
       note: "Note",
       status: "Status",
@@ -607,12 +819,19 @@ export default function useInventory({
       const hasNoteFieldChange = Object.prototype.hasOwnProperty.call(changes, "note");
       const changeLines = Object.keys(changes)
         .map((key) => {
+          if (selectedIsCable && key === "assigned_user") {
+            return null;
+          }
           const entry = changes[key];
-          if (normalizeHistoryValue(entry.old) === normalizeHistoryValue(entry.new)) {
+          const oldValue =
+            key === "model" && selectedIsCable ? formatCableLength(entry.old) : entry.old;
+          const newValue =
+            key === "model" && selectedIsCable ? formatCableLength(entry.new) : entry.new;
+          if (normalizeHistoryValue(oldValue) === normalizeHistoryValue(newValue)) {
             return null;
           }
           const label = labels[key] || key;
-          return `${label}: ${fmt(entry.old)} -> ${fmt(entry.new)}`;
+          return `${label}: ${fmt(oldValue)} -> ${fmt(newValue)}`;
         })
         .filter(Boolean);
       return {
@@ -626,7 +845,7 @@ export default function useInventory({
       const delta = getSortableTime(b.timestamp) - getSortableTime(a.timestamp);
       return historySortDirection === "desc" ? delta : -delta;
     });
-  }, [history, historySortDirection]);
+  }, [history, historySortDirection, selectedItem]);
 
   const editHasChanges = useMemo(() => {
     if (!selectedItem) {
@@ -679,6 +898,7 @@ export default function useInventory({
     setQuickActionForm(createQuickActionForm());
     setFilterStatus(DEFAULT_FILTER_STATUS);
     setFilterCategory(DEFAULT_FILTER_CATEGORY);
+    setHideRetired(false);
     setSortField(DEFAULT_SORT_FIELD);
     setSortDirection(DEFAULT_SORT_DIRECTION);
     setPageSize(DEFAULT_PAGE_SIZE);
@@ -689,6 +909,10 @@ export default function useInventory({
     setHistorySortDirection("desc");
     setRetireItem(null);
     setRetireForm(createRetireForm());
+    setShowCableModal(false);
+    setCableCategory("Cables");
+    setCableSummaryItems([]);
+    setCableSummaryHistory([]);
   };
 
   return {
@@ -706,6 +930,7 @@ export default function useInventory({
       quickActionForm,
       filterStatus,
       filterCategory,
+      hideRetired,
       sortField,
       sortDirection,
       pageSize,
@@ -716,6 +941,10 @@ export default function useInventory({
       historySortDirection,
       retireItem,
       retireForm,
+      showCableModal,
+      cableCategory,
+      cableSummaryItems,
+      cableSummaryHistory,
     },
     derived: {
       filteredAndSortedItems,
@@ -727,6 +956,7 @@ export default function useInventory({
       pagedItems,
       uniqueCategories,
       uniqueStatuses,
+      hasRetiredItems,
       formCategoryOptions,
       formMakeOptionsByCategory,
       formModelOptionsByCategoryMake,
@@ -746,6 +976,7 @@ export default function useInventory({
       setQuickActionForm,
       setFilterStatus,
       setFilterCategory,
+      setHideRetired,
       setSortField,
       setSortDirection,
       setPageSize,
@@ -761,6 +992,12 @@ export default function useInventory({
       handleEditSubmit,
       handleRetireSubmit,
       handleQuickActionSubmit,
+      openCableModal,
+      closeCableModal,
+      adjustCableQuantity,
+      setCableQuantity,
+      restoreCableItem,
+      applyCableQuantityChange,
       closeItemModal,
       closeAddModal,
       loadItemDetail,

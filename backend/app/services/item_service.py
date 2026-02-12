@@ -28,11 +28,11 @@ def apply_item_status_change(
     actor: str,
     action: str,
     note: Optional[str],
+    include_assigned_user_change: bool = True,
 ) -> Dict[str, Any]:
-    changes = {
-        "status": {"old": row["status"], "new": next_status},
-        "assigned_user": {"old": row["assigned_user"], "new": next_assigned_user},
-    }
+    changes = {"status": {"old": row["status"], "new": next_status}}
+    if include_assigned_user_change:
+        changes["assigned_user"] = {"old": row["assigned_user"], "new": next_assigned_user}
     conn.execute(
         "UPDATE items SET status = ?, assigned_user = ?, updated_at = ? WHERE id = ?",
         (next_status, next_assigned_user, now_iso(), item_id),

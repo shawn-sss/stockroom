@@ -23,6 +23,11 @@ def title_case_words(value: str) -> str:
     )
 
 
+def is_cable_category(value: Optional[str]) -> bool:
+    normalized = (value or "").strip().lower()
+    return normalized in {"cable", "cables"}
+
+
 def row_to_item(row: sqlite3.Row) -> Dict[str, Any]:
     return {
         "id": row["id"],
@@ -30,6 +35,7 @@ def row_to_item(row: sqlite3.Row) -> Dict[str, Any]:
         "make": row["make"],
         "model": row["model"],
         "service_tag": row["service_tag"],
+        "quantity": row["quantity"] if "quantity" in row.keys() else 1,
         "row": row["row"] if "row" in row.keys() else None,
         "note": row["note"] if "note" in row.keys() else None,
         "status": row["status"],

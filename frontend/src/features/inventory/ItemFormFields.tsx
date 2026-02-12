@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { buildCableEnds, formatCableLength, isCableCategory, parseCableEnds } from "./cable";
 
 export default function ItemFormFields({
   form,
@@ -31,6 +32,7 @@ export default function ItemFormFields({
   const hasMakeValue = makeValue.trim().length > 0;
   const hasModelValue = modelValue.trim().length > 0;
   const hasServiceTagValue = serviceTagValue.trim().length > 0;
+  const isCable = isCableCategory(categoryValue);
   const showNotApplicable = categoryValue.trim().toLowerCase() === "part";
   const requiredProps = required ? { required: true } : {};
   const inputLockProps = disabled
@@ -40,8 +42,9 @@ export default function ItemFormFields({
   const isMakeDisabled = disabled || !hasCategoryValue;
   const isModelDisabled = disabled || !hasCategoryValue || !hasMakeValue;
   const isServiceTagDisabled = disabled || !hasCategoryValue || !hasMakeValue || !hasModelValue;
-  const isRowAndNoteDisabled =
-    disabled || !hasCategoryValue || !hasMakeValue || !hasModelValue || !hasServiceTagValue;
+  const isRowAndNoteDisabled = isCable
+    ? disabled || !hasCategoryValue || !hasMakeValue || !hasModelValue
+    : disabled || !hasCategoryValue || !hasMakeValue || !hasModelValue || !hasServiceTagValue;
   const availableMakes = useMemo(() => {
     if (!hasCategoryValue) {
       return [];
@@ -55,6 +58,29 @@ export default function ItemFormFields({
     const modelsByMake = modelOptionsByCategoryMake[categoryValue.trim()] || {};
     return modelsByMake[makeValue.trim()] || [];
   }, [categoryValue, hasCategoryValue, hasMakeValue, makeValue, modelOptionsByCategoryMake]);
+  const cableEnds = useMemo(() => parseCableEnds(makeValue), [makeValue]);
+  const buildEndsWithOptionalMirror = (nextEndA: string) => {
+    const existingEndA = cableEnds.endA;
+    const existingEndB = cableEnds.endB;
+    const shouldMirrorEndB = !existingEndB || existingEndB === existingEndA;
+    return buildCableEnds(nextEndA, shouldMirrorEndB ? nextEndA : existingEndB);
+  };
+  const cableEndOptions = useMemo(() => {
+    if (!isCable) {
+      return [];
+    }
+    const options = new Set<string>();
+    availableMakes.forEach((existing) => {
+      const parsed = parseCableEnds(existing);
+      if (parsed.endA) {
+        options.add(parsed.endA);
+      }
+      if (parsed.endB) {
+        options.add(parsed.endB);
+      }
+    });
+    return [...options].sort((a, b) => a.localeCompare(b));
+  }, [availableMakes, isCable]);
 
   useEffect(() => {
     if (!hasCategoryValue) {
@@ -63,12 +89,13 @@ export default function ItemFormFields({
       }
       return;
     }
-    if (useDropdowns.make && makeValue && !availableMakes.includes(makeValue)) {
+    if (!isCable && useDropdowns.make && makeValue && !availableMakes.includes(makeValue)) {
       setForm((prev) => ({ ...prev, make: "", model: "", serviceTag: "" }));
     }
   }, [
     availableMakes,
     hasCategoryValue,
+    isCable,
     makeValue,
     modelValue,
     serviceTagValue,
@@ -83,12 +110,13 @@ export default function ItemFormFields({
       }
       return;
     }
-    if (useDropdowns.model && modelValue && !availableModels.includes(modelValue)) {
+    if (!isCable && useDropdowns.model && modelValue && !availableModels.includes(modelValue)) {
       setForm((prev) => ({ ...prev, model: "", serviceTag: "" }));
     }
   }, [
     availableModels,
     hasMakeValue,
+    isCable,
     modelValue,
     serviceTagValue,
     setForm,
@@ -154,7 +182,7 @@ export default function ItemFormFields({
       </div>
       <div style={{ display: "grid", gap: 6 }}>
         <div className="field-header">
-          <span>Make</span>
+          <span>{isCable ? "Cable ends" : "Make"}</span>
           <button
             type="button"
             onClick={(event) => {
@@ -169,7 +197,65 @@ export default function ItemFormFields({
             {useDropdowns.make ? "Type custom" : "Use dropdown"}
           </button>
         </div>
-        {useDropdowns.make ? (
+        {isCable ? (
+          useDropdowns.make ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <select
+                name="cableEndA"
+                value={cableEnds.endA}
+                onChange={(event) =>
+                  setForm({ ...form, make: buildEndsWithOptionalMirror(event.target.value) })
+                }
+                {...requiredProps}
+                disabled={isMakeDisabled}
+              >
+                <option value="">Select End A...</option>
+                {cableEndOptions.map((option) => (
+                  <option key={`end-a-${option}`} value={option}>{option}</option>
+                ))}
+              </select>
+              <select
+                name="cableEndB"
+                value={cableEnds.endB}
+                onChange={(event) =>
+                  setForm({ ...form, make: buildCableEnds(cableEnds.endA, event.target.value) })
+                }
+                {...requiredProps}
+                disabled={isMakeDisabled}
+              >
+                <option value="">Select End B...</option>
+                {cableEndOptions.map((option) => (
+                  <option key={`end-b-${option}`} value={option}>{option}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <input
+                name="cableEndA"
+                placeholder="HDMI"
+                value={cableEnds.endA}
+                onChange={(event) =>
+                  setForm({ ...form, make: buildEndsWithOptionalMirror(event.target.value) })
+                }
+                {...requiredProps}
+                disabled={isMakeDisabled}
+                {...inputLockProps}
+              />
+              <input
+                name="cableEndB"
+                placeholder="DisplayPort"
+                value={cableEnds.endB}
+                onChange={(event) =>
+                  setForm({ ...form, make: buildCableEnds(cableEnds.endA, event.target.value) })
+                }
+                {...requiredProps}
+                disabled={isMakeDisabled}
+                {...inputLockProps}
+              />
+            </div>
+          )
+        ) : useDropdowns.make ? (
           <select
             name="make"
             value={makeValue}
@@ -187,7 +273,7 @@ export default function ItemFormFields({
         ) : (
           <input
             name="make"
-            placeholder={make}
+            placeholder={isCable ? "HDMI to DisplayPort / USB-C to HDMI..." : make}
             value={form.make ?? ""}
             onChange={(event) =>
               setForm({ ...form, make: event.target.value })
@@ -200,22 +286,37 @@ export default function ItemFormFields({
       </div>
       <div style={{ display: "grid", gap: 6 }}>
         <div className="field-header">
-          <span>Model</span>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setUseDropdowns({ ...useDropdowns, model: !useDropdowns.model });
-            }}
-            className="secondary"
-            style={{ padding: "4px 8px", fontSize: "11px" }}
-            title={useDropdowns.model ? "Type custom" : "Use dropdown"}
-            disabled={isModelDisabled}
-          >
-            {useDropdowns.model ? "Type custom" : "Use dropdown"}
-          </button>
+          <span>{isCable ? "Length (ft)" : "Model"}</span>
+          {!isCable ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setUseDropdowns({ ...useDropdowns, model: !useDropdowns.model });
+              }}
+              className="secondary"
+              style={{ padding: "4px 8px", fontSize: "11px" }}
+              title={useDropdowns.model ? "Type custom" : "Use dropdown"}
+              disabled={isModelDisabled}
+            >
+              {useDropdowns.model ? "Type custom" : "Use dropdown"}
+            </button>
+          ) : null}
         </div>
-        {useDropdowns.model ? (
+        {isCable ? (
+          <input
+            name="model"
+            placeholder={isCable ? "3 (saved as 3 ft)" : model}
+            value={form.model ?? ""}
+            onChange={(event) =>
+              setForm({ ...form, model: event.target.value })
+            }
+            onBlur={() => setForm({ ...form, model: formatCableLength(form.model) })}
+            {...requiredProps}
+            disabled={isModelDisabled}
+            {...inputLockProps}
+          />
+        ) : useDropdowns.model ? (
           <select
             name="model"
             value={modelValue}
@@ -233,7 +334,7 @@ export default function ItemFormFields({
         ) : (
           <input
             name="model"
-            placeholder={model}
+            placeholder={isCable ? "3 ft / 6 ft / 10 ft..." : model}
             value={form.model ?? ""}
             onChange={(event) =>
               setForm({ ...form, model: event.target.value })
@@ -244,37 +345,39 @@ export default function ItemFormFields({
           />
         )}
       </div>
-      <div style={{ display: "grid", gap: 6 }}>
-        <div className="field-header">
-          <span>Service tag</span>
-          {showNotApplicable ? (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setForm({ ...form, serviceTag: "N/A" });
-              }}
-              className="secondary"
-              style={{ padding: "4px 8px", fontSize: "11px" }}
-              disabled={isServiceTagDisabled}
-              title="Set service tag to N/A"
-            >
-              Not applicable
-            </button>
-          ) : null}
+      {!isCable ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div className="field-header">
+            <span>Service tag</span>
+            {showNotApplicable ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setForm({ ...form, serviceTag: "N/A" });
+                }}
+                className="secondary"
+                style={{ padding: "4px 8px", fontSize: "11px" }}
+                disabled={isServiceTagDisabled}
+                title="Set service tag to N/A"
+              >
+                Not applicable
+              </button>
+            ) : null}
+          </div>
+          <input
+            name="serviceTag"
+            placeholder={serviceTag}
+            value={form.serviceTag ?? ""}
+            onChange={(event) =>
+              setForm({ ...form, serviceTag: event.target.value })
+            }
+            {...requiredProps}
+            disabled={isServiceTagDisabled}
+            {...inputLockProps}
+          />
         </div>
-        <input
-          name="serviceTag"
-          placeholder={serviceTag}
-          value={form.serviceTag ?? ""}
-          onChange={(event) =>
-            setForm({ ...form, serviceTag: event.target.value })
-          }
-          {...requiredProps}
-          disabled={isServiceTagDisabled}
-          {...inputLockProps}
-        />
-      </div>
+      ) : null}
       <div style={{ display: "grid", gap: 6 }}>
         <div className="field-header">
           <span>Row (optional)</span>

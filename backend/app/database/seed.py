@@ -69,14 +69,15 @@ def seed_items(conn) -> None:
         created_at_str = created_at.isoformat()
         cursor = conn.execute(
             """
-            INSERT INTO items (category, make, model, service_tag, row, note, status, assigned_user, created_at, created_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO items (category, make, model, service_tag, quantity, row, note, status, assigned_user, created_at, created_by, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 category,
                 make,
                 model,
                 service_tag,
+                1,
                 row,
                 None,
                 STATUS_IN_STOCK,
@@ -92,6 +93,7 @@ def seed_items(conn) -> None:
             "make": {"old": None, "new": make},
             "model": {"old": None, "new": model},
             "service_tag": {"old": None, "new": service_tag},
+            "quantity": {"old": None, "new": 1},
             "row": {"old": None, "new": row},
             "note": {"old": None, "new": None},
             "status": {"old": None, "new": STATUS_IN_STOCK},

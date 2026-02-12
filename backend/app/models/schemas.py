@@ -7,7 +7,8 @@ class ItemCreate(BaseModel):
     category: str = Field(..., min_length=1)
     make: str = Field(..., min_length=1)
     model: str = Field(..., min_length=1)
-    service_tag: str = Field(..., min_length=1)
+    service_tag: Optional[str] = None
+    quantity: int = Field(1, ge=0)
     row: Optional[str] = None
     note: Optional[str] = None
 
@@ -17,6 +18,7 @@ class ItemUpdate(BaseModel):
     make: Optional[str] = None
     model: Optional[str] = None
     service_tag: Optional[str] = None
+    quantity: Optional[int] = Field(None, ge=0)
     row: Optional[str] = None
     note: Optional[str] = None
 
@@ -27,6 +29,12 @@ class DeployRequest(BaseModel):
 
 
 class ReturnRequest(BaseModel):
+    note: Optional[str] = None
+    zero_stock: bool = False
+
+
+class QuantityAdjustRequest(BaseModel):
+    delta: int
     note: Optional[str] = None
 
 

@@ -1,5 +1,6 @@
 import ItemFormFields from "./ItemFormFields";
 import Modal from "../../components/Modal";
+import { hasCompleteCableEnds, isCableCategory } from "./cable";
 
 export default function AddItemModal({
   isOpen,
@@ -19,11 +20,12 @@ export default function AddItemModal({
     return null;
   }
 
+  const cable = isCableCategory(addForm.category);
   const canSubmit =
     addForm.category?.trim() &&
-    addForm.make?.trim() &&
+    (cable ? hasCompleteCableEnds(addForm.make) : addForm.make?.trim()) &&
     addForm.model?.trim() &&
-    addForm.serviceTag?.trim();
+    (cable || addForm.serviceTag?.trim());
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} contentClassName="modal modal-narrow">
@@ -31,7 +33,9 @@ export default function AddItemModal({
         <div>
           <h2 style={{ margin: 0 }}>Add new item</h2>
           <p className="muted" style={{ margin: "6px 0 0" }}>
-            Add a new item to the inventory
+            {cable
+              ? "For cables, capture ends + length (saved in ft)"
+              : "Add a new item to the inventory"}
           </p>
         </div>
         <button type="button" className="secondary" onClick={onClose} aria-label="Close" title="Close">
