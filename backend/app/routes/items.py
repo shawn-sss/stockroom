@@ -4,9 +4,15 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..common import (
+    CABLE_DUPLICATE_ERROR,
+    capitalize_first,
+    cable_signature,
     create_audit_event,
     is_cable_category,
     now_iso,
+    normalize_cable_ends,
+    normalize_cable_length,
+    raise_if_cable_unique_integrity_error,
     require_nonempty,
     row_to_item,
     title_case_words,
@@ -38,40 +44,6 @@ def normalize_service_tag(category: str, value: Optional[str]) -> str:
         return "N/A"
     raise HTTPException(status_code=400, detail="service_tag is required")
 
-
-def normalize_cable_length(value: str) -> str:
-    raw = value.strip()
-    if not raw:
-        return raw
-    lowered = raw.lower()
-    if lowered.endswith(" ft"):
-        return f"{raw[:-3].strip()} ft"
-    if lowered.endswith("ft"):
-        return f"{raw[:-2].strip()} ft"
-    return f"{raw} ft"
-
-
-def normalize_cable_ends(value: str) -> str:
-    raw = value.strip()
-    if not raw:
-        return raw
-    parts = [part.strip() for part in raw.split("-", 1)]
-    if len(parts) < 2:
-        return raw
-    left, right = parts[0], parts[1]
-    if not left or not right:
-        return raw
-    ordered = sorted([left, right], key=lambda part: part.lower())
-    return f"{ordered[0]}-{ordered[1]}"
-
-
-def cable_signature(make: str, model: str) -> tuple[str, str]:
-    return (
-        normalize_cable_ends(make).lower(),
-        normalize_cable_length(model).lower(),
-    )
-
-
 def find_existing_cable_conflict(
     conn: sqlite3.Connection,
     make: str,
@@ -79,7 +51,7 @@ def find_existing_cable_conflict(
     exclude_item_id: Optional[int] = None,
 ) -> Optional[int]:
     params: List[Any] = []
-    query = "SELECT id, make, model FROM items WHERE lower(category) IN ('cable', 'cables')"
+    query = "SELECT id, make, model FROM items WHERE lower(category) = 'cable'"
     if exclude_item_id is not None:
         query += " AND id != ?"
         params.append(exclude_item_id)
@@ -118,7 +90,7 @@ def add_item(
     current_user=Depends(get_current_user),
 ):
     created_at = now_iso()
-    category = title_case_words(require_nonempty(payload.category, "category"))
+    category = capitalize_first(require_nonempty(payload.category, "category"))
     make = require_nonempty(payload.make, "make")
     model = require_nonempty(payload.model, "model")
     if is_cable_category(category):
@@ -161,14 +133,7 @@ def add_item(
             ),
         )
     except sqlite3.IntegrityError as exc:
-        if "idx_items_cable_unique_signature" in str(exc):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "A cable with the same ends and length already exists. "
-                    "Each cable ends+length combination must be unique."
-                ),
-            ) from exc
+        raise_if_cable_unique_integrity_error(exc)
         raise
     item_id = cur.lastrowid
     changes = {
@@ -201,7 +166,7 @@ def get_category_summary(
     conn: sqlite3.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    normalized_category = title_case_words(require_nonempty(category, "category"))
+    normalized_category = capitalize_first(require_nonempty(category, "category"))
     rows = conn.execute(
         "SELECT * FROM items WHERE lower(category) = lower(?) ORDER BY make ASC, model ASC, id ASC",
         (normalized_category,),
@@ -259,7 +224,7 @@ def update_item(
             else:
                 normalized = require_nonempty(value, field)
             if field == "category":
-                normalized = title_case_words(normalized)
+                normalized = capitalize_first(normalized)
             if field in ("row", "note") and normalized == "":
                 normalized = None
             if field == "service_tag" and normalized == "":
@@ -296,10 +261,7 @@ def update_item(
             if existing_id is not None:
                 raise HTTPException(
                     status_code=400,
-                    detail=(
-                        "A cable with the same ends and length already exists. "
-                        "Each cable ends+length combination must be unique."
-                    ),
+                    detail=CABLE_DUPLICATE_ERROR,
                 )
     next_service_tag = updates.get("service_tag", row["service_tag"])
     if not next_service_tag and not is_cable_category(next_category):
@@ -323,14 +285,7 @@ def update_item(
             [changes[field]["new"] for field in changes.keys()] + [updated_at, item_id],
         )
     except sqlite3.IntegrityError as exc:
-        if "idx_items_cable_unique_signature" in str(exc):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "A cable with the same ends and length already exists. "
-                    "Each cable ends+length combination must be unique."
-                ),
-            ) from exc
+        raise_if_cable_unique_integrity_error(exc)
         raise
     create_audit_event(
         conn,
@@ -387,7 +342,7 @@ def deploy_item(
     if is_cable_category(row["category"]):
         raise HTTPException(
             status_code=400,
-            detail="Cables do not use deploy/assigned user tracking",
+            detail="Cable items do not use deploy/assigned user tracking",
         )
     if row["status"] == STATUS_RETIRED:
         raise HTTPException(status_code=400, detail="Item is retired")

@@ -157,7 +157,7 @@ export default function ItemFormFields({
             name="category"
             value={categoryValue}
             onChange={(event) =>
-              setForm({ ...form, category: capitalizeFirst(event.target.value) })
+              setForm({ ...form, category: event.target.value })
             }
             {...requiredProps}
             disabled={isCategoryDisabled}

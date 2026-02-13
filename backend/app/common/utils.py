@@ -23,9 +23,16 @@ def title_case_words(value: str) -> str:
     )
 
 
+def capitalize_first(value: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        return cleaned
+    return cleaned[:1].upper() + cleaned[1:]
+
+
 def is_cable_category(value: Optional[str]) -> bool:
     normalized = (value or "").strip().lower()
-    return normalized in {"cable", "cables"}
+    return normalized == "cable"
 
 
 def row_to_item(row: sqlite3.Row) -> Dict[str, Any]:

@@ -15,6 +15,7 @@ export default function CableOverviewModal({
   onRequestRestore,
   busy,
 }) {
+  type HistoryChange = { old?: unknown; new?: unknown };
   if (!isOpen) {
     return null;
   }
@@ -173,7 +174,11 @@ export default function CableOverviewModal({
                     return normalized;
                   };
                   const toDisplayValue = (value) => (value ? value : "-");
-                  const changeEntries = Object.entries(event?.changes || {})
+                  const rawChanges =
+                    event?.changes && typeof event.changes === "object"
+                      ? (event.changes as Record<string, HistoryChange>)
+                      : {};
+                  const changeEntries = Object.entries(rawChanges)
                     .filter(([key]) => key !== "assigned_user")
                     .map(([key, value]) => {
                       const oldValue = formatHistoryValue(key, value?.old);

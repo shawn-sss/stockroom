@@ -1,16 +1,9 @@
-import { useEffect } from "react";
 import "./LoginView.css";
 
 export default function LoginView({ onLogin, busy, notice, error }) {
-  useEffect(() => {
-    document.body.classList.add("login-view");
-    return () => {
-      document.body.classList.remove("login-view");
-    };
-  }, []);
-
   return (
-    <div className="app-shell">
+    <div className="login-view">
+      <div className="app-shell">
       {(notice || error) ? (
         <div className="toast-stack" role="status" aria-live="polite">
           {notice ? <div className="notice">{notice}</div> : null}
@@ -39,6 +32,7 @@ export default function LoginView({ onLogin, busy, notice, error }) {
           </label>
           <button type="submit" disabled={busy} title="Sign in">Sign in</button>
         </form>
+      </div>
       </div>
     </div>
   );

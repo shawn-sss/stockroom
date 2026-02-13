@@ -1,8 +1,30 @@
 :root {
-  --color-blue-bell: #0597d0;
-  --color-baltic-blue: #0362a5;
-  --color-sky-blue: #70bde1;
+  --color-blue-bell: #0b9ed8;
+  --color-baltic-blue: #0a5da0;
+  --color-sky-blue: #7ec8ec;
+  --color-midnight-blue: #123a57;
+  --color-frost-blue: #e9f6ff;
+  --shadow-soft: 0 12px 28px rgba(10, 72, 118, 0.12);
+  --shadow-strong: 0 20px 44px rgba(10, 72, 118, 0.18);
   --color-white: #ffffff;
+}
+
+body {
+  margin: 0;
+  color: var(--color-midnight-blue);
+  background: linear-gradient(180deg, #f9fdff 0%, #f2f9ff 100%);
+  font-family: "Segoe UI Variable Text", "Aptos", "Trebuchet MS", "Verdana", sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(11, 158, 216, 0.22);
+  color: #08314d;
 }
 
 a, 

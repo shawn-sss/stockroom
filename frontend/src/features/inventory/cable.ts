@@ -1,6 +1,8 @@
+export const CABLE_CATEGORY = "Cable";
+
 export function isCableCategory(value?: string | null) {
   const normalized = (value || "").trim().toLowerCase();
-  return normalized === "cable" || normalized === "cables";
+  return normalized === CABLE_CATEGORY.toLowerCase();
 }
 
 export function parseCableEnds(value?: string | null) {

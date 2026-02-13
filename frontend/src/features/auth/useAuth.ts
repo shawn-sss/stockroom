@@ -1,14 +1,28 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { apiRequest } from "../../api/client";
 
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error && error.message ? error.message : "Session expired";
+
+const getInitialToken = () => {
+  try {
+    return localStorage.getItem("token");
+  } catch (err) {
+    return null;
+  }
+};
+
 export default function useAuth({ setError }) {
-  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [token, setToken] = useState(getInitialToken);
   const [username, setUsername] = useState("");
   const [role, setRole] = useState("user");
   const [loading, setLoading] = useState(Boolean(token));
 
   const clearSession = () => {
-    localStorage.removeItem("token");
+    try {
+      localStorage.removeItem("token");
+    } catch (err) {
+    }
     setToken(null);
     setUsername("");
     setRole("user");
@@ -71,7 +85,12 @@ export default function useAuth({ setError }) {
       return { ok: false };
     }
     const data = await res.json();
-    localStorage.setItem("token", data.access_token);
+    try {
+      localStorage.setItem("token", data.access_token);
+    } catch (err) {
+      setError("Unable to persist session");
+      return { ok: false };
+    }
     setToken(data.access_token);
     return { ok: true };
   };
@@ -98,5 +117,3 @@ export default function useAuth({ setError }) {
     handleLogout,
   };
 }
-  const getErrorMessage = (error: unknown) =>
-    error instanceof Error && error.message ? error.message : "Session expired";

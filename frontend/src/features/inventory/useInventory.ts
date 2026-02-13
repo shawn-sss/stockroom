@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { apiRequest, getApiErrorMessage } from "../../api/client";
+import { apiRequest, readApiErrorMessage } from "../../api/client";
 import {
+  capitalizeFirst,
   capitalizeWords,
   formatDate,
   getSortableTime,
@@ -18,12 +19,14 @@ import {
   DEFAULT_SORT_FIELD,
 } from "../../constants/inventory";
 import {
+  CABLE_CATEGORY,
   formatCableLength,
   hasCompleteCableEnds,
   isCableCategory,
   normalizeCableEnds,
   parseQuantityValue,
 } from "./cable";
+import { runGuardedAction } from "../../utils/async";
 
 const emptyItemForm = {
   category: "",
@@ -107,31 +110,9 @@ export default function useInventory({
   const [retireItem, setRetireItem] = useState(null);
   const [retireForm, setRetireForm] = useState(createRetireForm);
   const [showCableModal, setShowCableModal] = useState(false);
-  const [cableCategory, setCableCategory] = useState("Cables");
+  const [cableCategory, setCableCategory] = useState(CABLE_CATEGORY);
   const [cableSummaryItems, setCableSummaryItems] = useState([]);
   const [cableSummaryHistory, setCableSummaryHistory] = useState([]);
-
-  const getApiFailure = async (res, fallbackMessage) => {
-    let data = null;
-    try {
-      data = await res.json();
-    } catch (err) {
-      data = null;
-    }
-    return getApiErrorMessage(data, fallbackMessage);
-  };
-
-  const runBusyAction = async (action) => {
-    setBusy(true);
-    setError("");
-    try {
-      await action();
-    } catch (err) {
-      setError(err.message || "Unexpected error");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const getStatusBadgeClass = (status) => {
     if (status === STATUS_IN_STOCK) {
@@ -383,57 +364,70 @@ export default function useInventory({
   }, [retireItem, selectedItem]);
 
   const loadItems = async (activeToken = token, query = "") => {
-    const queryString = query ? `?q=${encodeURIComponent(query)}` : "";
-    const res = await apiRequest(`/items${queryString}`, {}, activeToken);
-    if (!res.ok) {
+    try {
+      const queryString = query ? `?q=${encodeURIComponent(query)}` : "";
+      const res = await apiRequest(`/items${queryString}`, {}, activeToken);
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, "Failed to load inventory"));
+        return;
+      }
+      const data = await res.json();
+      setError("");
+      setItems(data.items || []);
+    } catch (err) {
       setError("Failed to load inventory");
-      return;
     }
-    const data = await res.json();
-    setError("");
-    setItems(data.items || []);
   };
 
   const loadAllItems = async (activeToken = token) => {
-    const res = await apiRequest("/items", {}, activeToken);
-    if (!res.ok) {
+    try {
+      const res = await apiRequest("/items", {}, activeToken);
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, "Failed to load inventory totals"));
+        return;
+      }
+      const data = await res.json();
+      setError("");
+      setAllItems(data.items || []);
+    } catch (err) {
       setError("Failed to load inventory totals");
-      return;
     }
-    const data = await res.json();
-    setError("");
-    setAllItems(data.items || []);
   };
 
   const loadItemDetail = async (itemId) => {
-    const res = await apiRequest(`/items/${itemId}`, {}, token);
-    if (!res.ok) {
+    try {
+      const res = await apiRequest(`/items/${itemId}`, {}, token);
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, "Failed to load item"));
+        return null;
+      }
+      const data = await res.json();
+      setError("");
+      setSelectedItem(data.item);
+      setHistory(data.history || []);
+      setEditForm({
+        category: data.item.category,
+        make: data.item.make,
+        model: data.item.model,
+        serviceTag: data.item.service_tag,
+        row: data.item.row ?? "",
+        note: data.item.note ?? "",
+      });
+      setEditUnlocked(false);
+      const categoryOptions = formCategoryOptions;
+      const makeOptions = formMakeOptionsByCategory[data.item.category] || [];
+      const modelOptions =
+        (formModelOptionsByCategoryMake[data.item.category] || {})[data.item.make] || [];
+      setUseEditDropdowns({
+        category: categoryOptions.includes(data.item.category),
+        make: makeOptions.includes(data.item.make),
+        model: modelOptions.includes(data.item.model),
+      });
+      return data.item;
+    } catch (err) {
       setError("Failed to load item");
       return null;
     }
-    const data = await res.json();
-    setError("");
-    setSelectedItem(data.item);
-    setHistory(data.history || []);
-    setEditForm({
-      category: data.item.category,
-      make: data.item.make,
-      model: data.item.model,
-      serviceTag: data.item.service_tag,
-      row: data.item.row ?? "",
-      note: data.item.note ?? "",
-    });
-    setEditUnlocked(false);
-    const categoryOptions = formCategoryOptions;
-    const makeOptions = formMakeOptionsByCategory[data.item.category] || [];
-    const modelOptions =
-      (formModelOptionsByCategoryMake[data.item.category] || {})[data.item.make] || [];
-    setUseEditDropdowns({
-      category: categoryOptions.includes(data.item.category),
-      make: makeOptions.includes(data.item.make),
-      model: modelOptions.includes(data.item.model),
-    });
-    return data.item;
   };
 
   useEffect(() => {
@@ -465,8 +459,10 @@ export default function useInventory({
     if (!hasRequiredItemFields(addForm)) {
       return;
     }
-    await runBusyAction(async () => {
-      const normalizedCategory = capitalizeWords(addForm.category);
+    await runGuardedAction({ setBusy, setError, action: async () => {
+      const normalizedCategory = useDropdowns.category
+        ? (addForm.category || "").trim()
+        : capitalizeFirst((addForm.category || "").trim());
       const normalizedEnds = normalizeCableEnds(addForm.make).toLowerCase();
       const normalizedLength = formatCableLength(addForm.model).toLowerCase();
       if (isCableCategory(normalizedCategory)) {
@@ -507,7 +503,7 @@ export default function useInventory({
         token
       );
       if (!res.ok) {
-        throw new Error(await getApiFailure(res, "Failed to add item"));
+        throw new Error(await readApiErrorMessage(res, "Failed to add item"));
       }
       const data = await res.json();
       await loadItems(token, search.trim());
@@ -521,7 +517,7 @@ export default function useInventory({
       await loadItemDetail(data.item.id);
       setShowAddModal(false);
       setNotice("Item added");
-    });
+    }});
   };
 
   const handleEditSubmit = async (event) => {
@@ -532,14 +528,16 @@ export default function useInventory({
     if (!hasRequiredItemFields(editForm)) {
       return;
     }
-    await runBusyAction(async () => {
+    await runGuardedAction({ setBusy, setError, action: async () => {
       const res = await apiRequest(
         `/items/${selectedId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            category: capitalizeWords(editForm.category),
+            category: useEditDropdowns.category
+              ? (editForm.category || "").trim()
+              : capitalizeFirst((editForm.category || "").trim()),
             make: isCableCategory(editForm.category)
               ? normalizeCableEnds(editForm.make)
               : editForm.make,
@@ -554,7 +552,7 @@ export default function useInventory({
         token
       );
       if (!res.ok) {
-        throw new Error(await getApiFailure(res, "Failed to update item"));
+        throw new Error(await readApiErrorMessage(res, "Failed to update item"));
       }
       const data = await res.json();
       await loadItems(token, search.trim());
@@ -564,7 +562,7 @@ export default function useInventory({
       }
       await loadItemDetail(selectedId);
       setNotice("Edits saved");
-    });
+    }});
   };
 
   const handleRetireSubmit = async (event) => {
@@ -572,7 +570,7 @@ export default function useInventory({
     if (!retireItem) {
       return;
     }
-    await runBusyAction(async () => {
+    await runGuardedAction({ setBusy, setError, action: async () => {
       const isRetired = retireItem.status === STATUS_RETIRED;
       const endpoint = isRetired ? "restore" : "retire";
       let path;
@@ -594,7 +592,7 @@ export default function useInventory({
         token
       );
       if (!res.ok) {
-        throw new Error(await getApiFailure(res, "Failed to update status"));
+        throw new Error(await readApiErrorMessage(res, "Failed to update status"));
       }
       await res.json();
       await loadItems(token, search.trim());
@@ -608,7 +606,7 @@ export default function useInventory({
       setRetireItem(null);
       setRetireForm(createRetireForm());
       setNotice(isRetired ? "Item restored" : "Item retired");
-    });
+    }});
   };
 
   const handleQuickActionSubmit = async (event) => {
@@ -620,7 +618,7 @@ export default function useInventory({
       setError("Use cable quantity controls instead of deploy/return");
       return;
     }
-    await runBusyAction(async () => {
+    await runGuardedAction({ setBusy, setError, action: async () => {
       if (quickActionItem.status === STATUS_DEPLOYED) {
         const res = await apiRequest(
           `/items/${quickActionItem.id}/return`,
@@ -632,7 +630,7 @@ export default function useInventory({
           token
         );
         if (!res.ok) {
-          throw new Error(await getApiFailure(res, "Failed to return item"));
+          throw new Error(await readApiErrorMessage(res, "Failed to return item"));
         }
         setNotice("Item returned to stock");
       } else {
@@ -649,7 +647,7 @@ export default function useInventory({
           token
         );
         if (!res.ok) {
-          throw new Error(await getApiFailure(res, "Failed to deploy item"));
+          throw new Error(await readApiErrorMessage(res, "Failed to deploy item"));
         }
         setNotice("Item marked as deployed");
       }
@@ -660,18 +658,18 @@ export default function useInventory({
       }
       setQuickActionItem(null);
       setQuickActionForm(createQuickActionForm());
-    });
+    }});
   };
 
   const loadCableSummary = async (category = cableCategory) => {
-    const normalizedCategory = capitalizeWords(category || "Cables");
+    const normalizedCategory = capitalizeFirst((category || CABLE_CATEGORY).trim());
     const res = await apiRequest(
       `/items/category/${encodeURIComponent(normalizedCategory)}/summary`,
       {},
       token
     );
     if (!res.ok) {
-      throw new Error(await getApiFailure(res, "Failed to load cable summary"));
+      throw new Error(await readApiErrorMessage(res, "Failed to load cable summary"));
     }
     const data = await res.json();
     setCableCategory(data.category || normalizedCategory);
@@ -679,11 +677,11 @@ export default function useInventory({
     setCableSummaryHistory(data.history || []);
   };
 
-  const openCableModal = async (category = "Cables") => {
-    await runBusyAction(async () => {
+  const openCableModal = async (category = CABLE_CATEGORY) => {
+    await runGuardedAction({ setBusy, setError, action: async () => {
       await loadCableSummary(category);
       setShowCableModal(true);
-    });
+    }});
   };
 
   const closeCableModal = () => {
@@ -693,7 +691,7 @@ export default function useInventory({
   };
 
   const adjustCableQuantity = async (itemId, delta, note = "") => {
-    await runBusyAction(async () => {
+    await runGuardedAction({ setBusy, setError, action: async () => {
       const res = await apiRequest(
         `/items/${itemId}/quantity`,
         {
@@ -704,7 +702,7 @@ export default function useInventory({
         token
       );
       if (!res.ok) {
-        throw new Error(await getApiFailure(res, "Failed to adjust cable quantity"));
+        throw new Error(await readApiErrorMessage(res, "Failed to adjust cable quantity"));
       }
       await loadItems(token, search.trim());
       await loadAllItems(token);
@@ -713,7 +711,7 @@ export default function useInventory({
         await loadItemDetail(itemId);
       }
       setNotice("Cable quantity updated");
-    });
+    }});
   };
 
   const setCableQuantity = async (itemId, targetQuantity, currentQuantity, note = "") => {
@@ -736,7 +734,7 @@ export default function useInventory({
   };
 
   const restoreCableItem = async (itemId) => {
-    await runBusyAction(async () => {
+    await runGuardedAction({ setBusy, setError, action: async () => {
       const res = await apiRequest(
         `/items/${itemId}/restore`,
         {
@@ -747,7 +745,7 @@ export default function useInventory({
         token
       );
       if (!res.ok) {
-        throw new Error(await getApiFailure(res, "Failed to restore cable"));
+        throw new Error(await readApiErrorMessage(res, "Failed to restore cable"));
       }
       await loadItems(token, search.trim());
       await loadAllItems(token);
@@ -757,7 +755,7 @@ export default function useInventory({
         await loadItemDetail(itemId);
       }
       setNotice("Cable restored");
-    });
+    }});
   };
 
   const applyCableQuantityChange = async (
@@ -910,7 +908,7 @@ export default function useInventory({
     setRetireItem(null);
     setRetireForm(createRetireForm());
     setShowCableModal(false);
-    setCableCategory("Cables");
+    setCableCategory(CABLE_CATEGORY);
     setCableSummaryItems([]);
     setCableSummaryHistory([]);
   };
@@ -1014,3 +1012,5 @@ export default function useInventory({
     },
   };
 }
+
+

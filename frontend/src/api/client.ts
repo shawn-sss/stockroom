@@ -34,6 +34,15 @@ export function getApiErrorMessage(data: ApiErrorPayload, fallback: string) {
   return fallback;
 }
 
+export async function readApiErrorMessage(response: Response, fallback: string) {
+  try {
+    const data = await response.json();
+    return getApiErrorMessage(data, fallback);
+  } catch (err) {
+    return fallback;
+  }
+}
+
 export async function apiRequest(path: string, options: ApiRequestOptions = {}, token?: string | null) {
   const { skipAuthEvent, ...fetchOptions } = options;
   const headers = new Headers(fetchOptions.headers || {});

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { apiRequest, getApiErrorMessage } from "../../api/client";
+import { apiRequest, readApiErrorMessage } from "../../api/client";
+import { runGuardedAction } from "../../utils/async";
 
 const initialUserForm = { username: "", password: "", role: "user" };
 const initialResetForm = { username: "", newPassword: "" };
@@ -26,28 +27,6 @@ export default function useUserManagement({
   const isAdmin = role === "admin";
   const canCreateUsers = isOwner || isAdmin;
 
-  const getApiFailure = async (res, fallbackMessage) => {
-    let data = null;
-    try {
-      data = await res.json();
-    } catch (err) {
-      data = null;
-    }
-    return getApiErrorMessage(data, fallbackMessage);
-  };
-
-  const runBusyAction = async (action) => {
-    setBusy(true);
-    setError("");
-    try {
-      await action();
-    } catch (err) {
-      setError(err.message || "Unexpected error");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const resetUserManagementState = () => {
     setShowUsers(false);
     setUserManagementView("view");
@@ -67,25 +46,33 @@ export default function useUserManagement({
   };
 
   const loadUsersList = async () => {
-    const res = await apiRequest("/users", {}, token);
-    if (!res.ok) {
+    try {
+      const res = await apiRequest("/users", {}, token);
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, "Failed to load users"));
+        return;
+      }
+      const data = await res.json();
+      setError("");
+      setUsers(data.users || []);
+    } catch (err) {
       setError("Failed to load users");
-      return;
     }
-    const data = await res.json();
-    setError("");
-    setUsers(data.users || []);
   };
 
   const loadUserAuditLogs = async () => {
-    const res = await apiRequest("/user-audit-logs", {}, token);
-    if (!res.ok) {
+    try {
+      const res = await apiRequest("/user-audit-logs", {}, token);
+      if (!res.ok) {
+        setError(await readApiErrorMessage(res, "Failed to load audit logs"));
+        return;
+      }
+      const data = await res.json();
+      setError("");
+      setUserAuditLogs(data.logs || []);
+    } catch (err) {
       setError("Failed to load audit logs");
-      return;
     }
-    const data = await res.json();
-    setError("");
-    setUserAuditLogs(data.logs || []);
   };
 
   const openUserModal = async () => {
@@ -99,7 +86,7 @@ export default function useUserManagement({
     if (!canCreateUsers) {
       return;
     }
-    await runBusyAction(async () => {
+    await runGuardedAction({ setBusy, setError, action: async () => {
       const res = await apiRequest(
         "/users",
         {
@@ -114,12 +101,12 @@ export default function useUserManagement({
         token
       );
       if (!res.ok) {
-        throw new Error(await getApiFailure(res, "Failed to create user"));
+        throw new Error(await readApiErrorMessage(res, "Failed to create user"));
       }
       setUserForm(createUserForm());
       await loadUsersList();
       setNotice("User created");
-    });
+    }});
   };
 
   const handleUpdateRole = async (userId, newRole) => {
@@ -127,7 +114,7 @@ export default function useUserManagement({
       setError("Only owners can change user roles");
       return;
     }
-    await runBusyAction(async () => {
+    await runGuardedAction({ setBusy, setError, action: async () => {
       const res = await apiRequest(
         `/users/${userId}/role`,
         {
@@ -138,17 +125,17 @@ export default function useUserManagement({
         token
       );
       if (!res.ok) {
-        throw new Error(await getApiFailure(res, "Failed to update role"));
+        throw new Error(await readApiErrorMessage(res, "Failed to update role"));
       }
       await loadUsersList();
       setEditingUserRole(createEditingRoleForm());
       setNotice("User role updated");
-    });
+    }});
   };
 
   const handleResetPassword = async (event) => {
     event.preventDefault();
-    await runBusyAction(async () => {
+    await runGuardedAction({ setBusy, setError, action: async () => {
       const res = await apiRequest(
         `/users/${resetPasswordForm.username}/reset-password`,
         {
@@ -159,11 +146,11 @@ export default function useUserManagement({
         token
       );
       if (!res.ok) {
-        throw new Error(await getApiFailure(res, "Failed to reset password"));
+        throw new Error(await readApiErrorMessage(res, "Failed to reset password"));
       }
       setResetPasswordForm(createResetForm());
       setNotice("Password reset successfully");
-    });
+    }});
   };
 
   return {

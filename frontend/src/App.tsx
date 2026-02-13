@@ -8,14 +8,18 @@ import useInventory from "./features/inventory/useInventory";
 import useUserManagement from "./features/users/useUserManagement";
 import { formatDate } from "./utils/formatters";
 import {
+  ALLOWED_USER_VIEWS,
+  buildInventoryHash,
+  normalizeHash,
+  parseHash,
+} from "./features/navigation/hashRouting";
+import {
   DEFAULT_FILTER_CATEGORY,
   DEFAULT_FILTER_STATUS,
-  DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_DIRECTION,
   DEFAULT_SORT_FIELD,
 } from "./constants/inventory";
 
-const ALLOWED_USER_VIEWS = new Set(["view", "create", "reset-password", "logs"]);
 const normalizeUserValue = (value) => (value ? String(value).trim().toLowerCase() : "");
 
 export default function App() {
@@ -43,62 +47,6 @@ export default function App() {
     setBusy,
   });
 
-  const normalizeHash = (value) => {
-    if (!value || value === "#") {
-      return "#/inventory";
-    }
-    return value.startsWith("#") ? value : `#${value}`;
-  };
-
-  const parseHash = () => {
-    const raw = normalizeHash(window.location.hash || "");
-    const trimmed = raw.replace(/^#/, "");
-    const [pathPart, queryPart = ""] = trimmed.split("?");
-    const segments = pathPart.split("/").filter(Boolean);
-    return { segments, params: new URLSearchParams(queryPart) };
-  };
-
-  const buildInventoryHash = ({
-    view,
-    viewId,
-    viewAction,
-    search,
-    filterStatus,
-    filterCategory,
-    hideRetired,
-    sortField,
-    sortDirection,
-    pageSize,
-    page,
-    userView,
-  }) => {
-    const segments = ["inventory"];
-    if (view === "users") {
-      segments.push("users");
-    } else if (view === "add") {
-      segments.push("add");
-    } else if (view === "item" && viewId) {
-      segments.push("item", String(viewId));
-      if (viewAction) {
-        segments.push(viewAction);
-      }
-    }
-
-    const params = new URLSearchParams();
-    if (search) params.set("q", search);
-    if (filterStatus && filterStatus !== DEFAULT_FILTER_STATUS) params.set("status", filterStatus);
-    if (filterCategory && filterCategory !== DEFAULT_FILTER_CATEGORY) params.set("category", filterCategory);
-    if (hideRetired) params.set("hideRetired", "1");
-    if (sortField && sortField !== DEFAULT_SORT_FIELD) params.set("sort", sortField);
-    if (sortDirection && sortDirection !== DEFAULT_SORT_DIRECTION) params.set("dir", sortDirection);
-    if (pageSize !== DEFAULT_PAGE_SIZE) params.set("pageSize", String(pageSize));
-    if (page !== 1) params.set("page", String(page));
-    if (userView && view === "users") params.set("view", userView);
-
-    const query = params.toString();
-    return `#/${segments.join("/")}${query ? `?${query}` : ""}`;
-  };
-
   const setHash = (nextHash) => {
     const normalized = normalizeHash(nextHash);
     if (window.location.hash !== normalized) {
@@ -110,7 +58,7 @@ export default function App() {
     if (!auth.token) {
       return;
     }
-    const { segments, params } = parseHash();
+    const { segments, params } = parseHash(window.location.hash || "");
     if (segments[0] !== "inventory") {
       setHash("#/inventory");
       return;
@@ -197,7 +145,7 @@ export default function App() {
         const action = segments[3];
         if (action === "quick") {
           const quickCategory = item?.category ? String(item.category).trim().toLowerCase() : "";
-          if (quickCategory === "cable" || quickCategory === "cables") {
+          if (quickCategory === "cable") {
             inventory.actions.setQuickActionItem(null);
             inventory.actions.setRetireItem(null);
             inventory.actions.setShowItemModal(true);
@@ -400,7 +348,6 @@ export default function App() {
     <>
       <InventoryView
         username={auth.username}
-        role={auth.role}
         loading={auth.loading}
         notice={notice}
         error={error}
