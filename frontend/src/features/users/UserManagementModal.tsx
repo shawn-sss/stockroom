@@ -1,5 +1,11 @@
 import Modal from "../../components/Modal";
 import { getSortableTime } from "../../utils/formatters";
+import {
+  PASSWORD_PATTERN,
+  PASSWORD_RULE_TEXT,
+  USERNAME_PATTERN,
+  USERNAME_RULE_TEXT,
+} from "../../constants/auth";
 
 export default function UserManagementModal({
   isOpen,
@@ -199,6 +205,8 @@ export default function UserManagementModal({
                       name="createUsername"
                       value={userForm.username}
                       onChange={(event) => setUserForm({ ...userForm, username: event.target.value })}
+                      pattern={USERNAME_PATTERN}
+                      title={USERNAME_RULE_TEXT}
                       required
                     />
                   </label>
@@ -209,6 +217,8 @@ export default function UserManagementModal({
                       type="password"
                       value={userForm.password}
                       onChange={(event) => setUserForm({ ...userForm, password: event.target.value })}
+                      pattern={PASSWORD_PATTERN}
+                      title={PASSWORD_RULE_TEXT}
                       required
                     />
                   </label>
@@ -268,6 +278,8 @@ export default function UserManagementModal({
                       type="password"
                       value={resetPasswordForm.newPassword}
                       onChange={(event) => setResetPasswordForm({ ...resetPasswordForm, newPassword: event.target.value })}
+                      pattern={PASSWORD_PATTERN}
+                      title={PASSWORD_RULE_TEXT}
                       required
                     />
                   </label>

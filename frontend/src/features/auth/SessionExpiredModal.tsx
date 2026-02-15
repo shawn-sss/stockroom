@@ -1,4 +1,10 @@
 import Modal from "../../components/Modal";
+import {
+  PASSWORD_PATTERN,
+  PASSWORD_RULE_TEXT,
+  USERNAME_PATTERN,
+  USERNAME_RULE_TEXT,
+} from "../../constants/auth";
 
 export default function SessionExpiredModal({
   isOpen,
@@ -21,11 +27,24 @@ export default function SessionExpiredModal({
       <form onSubmit={onReauth} className="form-grid">
         <label>
           Username
-          <input name="username" type="text" defaultValue={username || ""} required />
+          <input
+            name="username"
+            type="text"
+            defaultValue={username || ""}
+            pattern={USERNAME_PATTERN}
+            title={USERNAME_RULE_TEXT}
+            required
+          />
         </label>
         <label>
           Password
-          <input name="password" type="password" required />
+          <input
+            name="password"
+            type="password"
+            pattern={PASSWORD_PATTERN}
+            title={PASSWORD_RULE_TEXT}
+            required
+          />
         </label>
         {error ? <div className="error">{error}</div> : null}
         <button type="submit" disabled={busy} title="Sign in">

@@ -69,7 +69,7 @@ export default function SetCableQuantityModal({
           Note (optional)
           <input
             name="setCableQuantityNote"
-            placeholder="Invoice #, shipment note, etc."
+            placeholder="Add any helpful context"
             value={form.note}
             onChange={(event) => setForm({ ...form, note: event.target.value })}
           />

@@ -22,9 +22,7 @@ export default function RetireItemModal({
   const subtitle = isCableCategory(item.category)
     ? `${item.category} - ${formatCableEnds(item.make)} (${formatCableLength(item.model)})`
     : `${item.category} - ${item.make} ${item.model}`;
-  const notePlaceholder = isRetired
-    ? "Optional note about restoring"
-    : "Optional note about retiring";
+  const notePlaceholder = "Add any helpful context";
 
   return (
     <Modal isOpen onClose={onClose} contentStyle={{ maxWidth: 500 }}>

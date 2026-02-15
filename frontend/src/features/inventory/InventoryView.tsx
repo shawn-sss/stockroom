@@ -180,7 +180,7 @@ export default function InventoryView({
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Category, make, model, tag, assigned user..."
+                  placeholder="Model, service tag, user..."
                 />
               </label>
             </form>
@@ -227,7 +227,7 @@ export default function InventoryView({
                     }}
                     title={
                       isCableCategory(category)
-                        ? "Open cable stock overview"
+                        ? "Open Cable Manager"
                         : filterCategory === category
                         ? "Clear category filter"
                         : `Filter by ${category}`
@@ -239,13 +239,7 @@ export default function InventoryView({
                     <div className="category-count-name">{category}</div>
                     <div className="category-count-meta">
                       {isCableCategory(category) ? (
-                        <>
-                          Click this card
-                          <br />
-                          to open Cable
-                          <br />
-                          Management
-                        </>
+                        <>Click this card to open the Cable Manager.</>
                       ) : (
                         <>
                           In stock: {inStock}
@@ -441,7 +435,7 @@ export default function InventoryView({
                       style={{ padding: "6px 10px", fontSize: "12px" }}
                       title={
                         isCableCategory(item.category)
-                          ? "Cables use quantity controls"
+                          ? "Open Cable Manager"
                           :
                         item.status === STATUS_RETIRED
                           ? "Item is retired"
@@ -451,7 +445,7 @@ export default function InventoryView({
                       }
                     >
                       {isCableCategory(item.category)
-                        ? "Cables"
+                        ? "Cable Manager"
                         : item.status === STATUS_RETIRED
                         ? "Retired"
                         : item.status === STATUS_DEPLOYED
@@ -598,9 +592,9 @@ export default function InventoryView({
                             closeItemModal();
                           }}
                           style={{ padding: "4px 8px", fontSize: "11px" }}
-                          title="Cable Management"
+                          title="Cable Manager"
                         >
-                          Cable Management
+                          Cable Manager
                         </button>
                         <span className="muted">
                           Qty: {parseQuantityValue(selectedItem.quantity, 0)}

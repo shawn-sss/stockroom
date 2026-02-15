@@ -97,7 +97,7 @@ def add_item(
         make = normalize_cable_ends(make)
         model = normalize_cable_length(model)
     service_tag = normalize_service_tag(category, payload.service_tag)
-    quantity = 1
+    quantity = 0 if is_cable_category(category) else 1
     row = payload.row.strip() if payload.row else None
     note = payload.note.strip() if payload.note else None
     if is_cable_category(category):

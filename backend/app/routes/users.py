@@ -41,7 +41,7 @@ def create_user(
     if role == "admin" and current_user["role"] != "owner":
         raise HTTPException(status_code=403, detail="Only the owner can assign admin access")
     username = require_nonempty(payload.username, "username")
-    normalized_username = username.casefold()
+    normalized_username = username.lower()
     existing = conn.execute(
         "SELECT 1 FROM users WHERE lower(username) = ?",
         (normalized_username,),

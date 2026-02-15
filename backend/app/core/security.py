@@ -16,7 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
 
 
 def authenticate_user(conn, username: str, password: str):
-    normalized = username.strip().casefold()
+    normalized = username.strip().lower()
     cur = conn.execute("SELECT * FROM users WHERE lower(username) = ?", (normalized,))
     row = cur.fetchone()
     if not row:
@@ -49,7 +49,7 @@ def get_current_user(
             raise credentials_error
     except JWTError as exc:
         raise credentials_error from exc
-    normalized = username.strip().casefold()
+    normalized = username.strip().lower()
     cur = conn.execute("SELECT * FROM users WHERE lower(username) = ?", (normalized,))
     row = cur.fetchone()
     if not row:

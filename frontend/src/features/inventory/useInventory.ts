@@ -107,6 +107,8 @@ export default function useInventory({
   const [historySortDirection, setHistorySortDirection] = useState("desc");
   const itemModalMouseDown = useRef(false);
   const prefsLoadedForUser = useRef(null);
+  const loadItemsRequestIdRef = useRef(0);
+  const loadItemsAbortControllerRef = useRef<AbortController | null>(null);
   const [retireItem, setRetireItem] = useState(null);
   const [retireForm, setRetireForm] = useState(createRetireForm);
   const [showCableModal, setShowCableModal] = useState(false);
@@ -322,7 +324,10 @@ export default function useInventory({
       pageSize,
       hideRetired,
     };
-    localStorage.setItem(storageKey, JSON.stringify(payload));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+    } catch (err) {
+    }
   }, [username, search, sortField, sortDirection, filterStatus, filterCategory, pageSize, hideRetired]);
 
   useEffect(() => {
@@ -364,18 +369,36 @@ export default function useInventory({
   }, [retireItem, selectedItem]);
 
   const loadItems = async (activeToken = token, query = "") => {
+    const requestId = loadItemsRequestIdRef.current + 1;
+    loadItemsRequestIdRef.current = requestId;
+    loadItemsAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadItemsAbortControllerRef.current = controller;
     try {
       const queryString = query ? `?q=${encodeURIComponent(query)}` : "";
-      const res = await apiRequest(`/items${queryString}`, {}, activeToken);
+      const res = await apiRequest(`/items${queryString}`, { signal: controller.signal }, activeToken);
+      if (requestId !== loadItemsRequestIdRef.current) {
+        return;
+      }
       if (!res.ok) {
         setError(await readApiErrorMessage(res, "Failed to load inventory"));
         return;
       }
       const data = await res.json();
+      if (requestId !== loadItemsRequestIdRef.current) {
+        return;
+      }
       setError("");
       setItems(data.items || []);
     } catch (err) {
+      if (controller.signal.aborted) {
+        return;
+      }
       setError("Failed to load inventory");
+    } finally {
+      if (loadItemsAbortControllerRef.current === controller) {
+        loadItemsAbortControllerRef.current = null;
+      }
     }
   };
 
@@ -448,6 +471,10 @@ export default function useInventory({
     }, 300);
     return () => window.clearTimeout(handle);
   }, [search, token]);
+
+  useEffect(() => () => {
+    loadItemsAbortControllerRef.current?.abort();
+  }, []);
 
   const handleSearchSubmit = async (event) => {
     event.preventDefault();
@@ -796,7 +823,7 @@ export default function useInventory({
     const selectedIsCable = isCableCategory(selectedItem?.category);
     const labels = {
       category: "Category",
-      make: "Make",
+      make: selectedIsCable ? "Cable ends" : "Make",
       model: selectedIsCable ? "Length (ft)" : "Model",
       service_tag: "Service tag",
       quantity: "Quantity",
@@ -817,7 +844,10 @@ export default function useInventory({
       const hasNoteFieldChange = Object.prototype.hasOwnProperty.call(changes, "note");
       const changeLines = Object.keys(changes)
         .map((key) => {
-          if (selectedIsCable && key === "assigned_user") {
+          if (selectedIsCable && (key === "assigned_user" || key === "service_tag")) {
+            return null;
+          }
+          if (selectedIsCable && key === "quantity" && String(event.action).toLowerCase() === "add") {
             return null;
           }
           const entry = changes[key];

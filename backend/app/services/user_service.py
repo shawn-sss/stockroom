@@ -24,7 +24,7 @@ def get_user_by_id_or_404(conn: sqlite3.Connection, user_id: int) -> sqlite3.Row
 
 
 def get_user_by_username_or_404(conn: sqlite3.Connection, username: str) -> sqlite3.Row:
-    normalized_username = require_nonempty(username, "username").casefold()
+    normalized_username = require_nonempty(username, "username").lower()
     row = conn.execute(
         "SELECT id, username, role, created_at FROM users WHERE lower(username) = ?",
         (normalized_username,),

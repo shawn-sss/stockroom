@@ -15,12 +15,12 @@ export default function ItemFormFields({
   placeholders = {} as Record<string, string>,
 }) {
   const {
-    category = "Laptop / Desktop / Monitor / Dock / Part",
-    make = "Dell / Lenovo / HP...",
-    model = "Latitude 5440 / ThinkPad T14...",
-    serviceTag = "Serial / Service tag",
+    category = "Laptop / Desktop / Monitor / Dock",
+    make = "Dell / Lenovo / HP",
+    model = "Latitude 5440 / ThinkPad T14",
+    serviceTag = "Serial Number / Service Tag",
     row = "Row / shelf identifier",
-    note = "Why / where / anything helpful",
+    note = "Add any helpful context",
   } = placeholders;
 
   const categoryValue = form.category ?? "";
@@ -244,7 +244,7 @@ export default function ItemFormFields({
               />
               <input
                 name="cableEndB"
-                placeholder="DisplayPort"
+                placeholder="HDMI"
                 value={cableEnds.endB}
                 onChange={(event) =>
                   setForm({ ...form, make: buildCableEnds(cableEnds.endA, event.target.value) })
@@ -273,7 +273,7 @@ export default function ItemFormFields({
         ) : (
           <input
             name="make"
-            placeholder={isCable ? "HDMI to DisplayPort / USB-C to HDMI..." : make}
+            placeholder={isCable ? "HDMI to HDMI" : make}
             value={form.make ?? ""}
             onChange={(event) =>
               setForm({ ...form, make: event.target.value })
@@ -306,7 +306,7 @@ export default function ItemFormFields({
         {isCable ? (
           <input
             name="model"
-            placeholder={isCable ? "3 (saved as 3 ft)" : model}
+            placeholder={isCable ? "3 / 6 / 10..." : model}
             value={form.model ?? ""}
             onChange={(event) =>
               setForm({ ...form, model: event.target.value })
@@ -334,7 +334,7 @@ export default function ItemFormFields({
         ) : (
           <input
             name="model"
-            placeholder={isCable ? "3 ft / 6 ft / 10 ft..." : model}
+            placeholder={isCable ? "3 / 6 / 10..." : model}
             value={form.model ?? ""}
             onChange={(event) =>
               setForm({ ...form, model: event.target.value })

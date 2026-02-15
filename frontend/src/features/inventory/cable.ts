@@ -1,34 +1,38 @@
 export const CABLE_CATEGORY = "Cable";
 
+function normalizeCableEndName(value?: string | null) {
+  return (value || "").trim().replace(/\s+/g, " ");
+}
+
 export function isCableCategory(value?: string | null) {
   const normalized = (value || "").trim().toLowerCase();
   return normalized === CABLE_CATEGORY.toLowerCase();
 }
 
 export function parseCableEnds(value?: string | null) {
-  const normalized = (value || "").trim();
-  if (!normalized) {
+  const raw = value ?? "";
+  if (raw.trim() === "") {
     return { endA: "", endB: "" };
   }
-  const dashIndex = normalized.indexOf("-");
+  const dashIndex = raw.indexOf("-");
   if (dashIndex < 0) {
-    return { endA: normalized, endB: "" };
+    return { endA: raw, endB: "" };
   }
-  const endA = normalized.slice(0, dashIndex).trim();
-  const endB = normalized.slice(dashIndex + 1).trim();
+  const endA = raw.slice(0, dashIndex);
+  const endB = raw.slice(dashIndex + 1);
   return { endA, endB };
 }
 
 export function buildCableEnds(endA?: string | null, endB?: string | null) {
-  const left = (endA || "").trim();
-  const right = (endB || "").trim();
-  if (left && right) {
+  const left = endA ?? "";
+  const right = endB ?? "";
+  if (left.length > 0 && right.length > 0) {
     return `${left}-${right}`;
   }
-  if (left) {
+  if (left.length > 0) {
     return left;
   }
-  if (right) {
+  if (right.length > 0) {
     return right;
   }
   return "";
@@ -36,10 +40,12 @@ export function buildCableEnds(endA?: string | null, endB?: string | null) {
 
 export function normalizeCableEnds(value?: string | null) {
   const { endA, endB } = parseCableEnds(value);
-  if (!endA || !endB) {
-    return (value || "").trim();
+  const normalizedA = normalizeCableEndName(endA);
+  const normalizedB = normalizeCableEndName(endB);
+  if (!normalizedA || !normalizedB) {
+    return normalizeCableEndName(value);
   }
-  const ordered = [endA, endB].sort((left, right) =>
+  const ordered = [normalizedA, normalizedB].sort((left, right) =>
     left.localeCompare(right, undefined, { sensitivity: "base" })
   );
   return `${ordered[0]}-${ordered[1]}`;
@@ -47,7 +53,7 @@ export function normalizeCableEnds(value?: string | null) {
 
 export function hasCompleteCableEnds(value?: string | null) {
   const { endA, endB } = parseCableEnds(value);
-  return Boolean(endA && endB);
+  return Boolean((endA || "").trim() && (endB || "").trim());
 }
 
 export function formatCableEnds(value?: string | null) {

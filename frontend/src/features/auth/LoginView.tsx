@@ -1,4 +1,10 @@
 import "./LoginView.css";
+import {
+  PASSWORD_PATTERN,
+  PASSWORD_RULE_TEXT,
+  USERNAME_PATTERN,
+  USERNAME_RULE_TEXT,
+} from "../../constants/auth";
 
 export default function LoginView({ onLogin, busy, notice, error }) {
   return (
@@ -24,11 +30,26 @@ export default function LoginView({ onLogin, busy, notice, error }) {
         <form onSubmit={onLogin} className="form-grid">
           <label>
             Username
-            <input name="username" type="text" autoComplete="username" required autoFocus />
+            <input
+              name="username"
+              type="text"
+              autoComplete="username"
+              pattern={USERNAME_PATTERN}
+              title={USERNAME_RULE_TEXT}
+              required
+              autoFocus
+            />
           </label>
           <label>
             Password
-            <input name="password" type="password" autoComplete="current-password" required />
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              pattern={PASSWORD_PATTERN}
+              title={PASSWORD_RULE_TEXT}
+              required
+            />
           </label>
           <button type="submit" disabled={busy} title="Sign in">Sign in</button>
         </form>

@@ -21,6 +21,7 @@ import {
 } from "./constants/inventory";
 
 const normalizeUserValue = (value) => (value ? String(value).trim().toLowerCase() : "");
+const ALLOWED_PAGE_SIZES = new Set([10, 20, 50, 100, 200, 0]);
 
 export default function App() {
   const [error, setError] = useState("");
@@ -93,7 +94,7 @@ export default function App() {
       }
       if (params.has("pageSize")) {
         const pageSizeParam = Number(params.get("pageSize"));
-        if (Number.isFinite(pageSizeParam)) {
+        if (Number.isInteger(pageSizeParam) && ALLOWED_PAGE_SIZES.has(pageSizeParam)) {
           inventory.actions.setPageSize(pageSizeParam);
         }
       }

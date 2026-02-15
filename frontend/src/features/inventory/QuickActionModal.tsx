@@ -58,11 +58,7 @@ export default function QuickActionModal({
           Note (optional)
           <input
             name="quickActionNote"
-            placeholder={
-              quickActionItem.status === STATUS_DEPLOYED
-                ? "Any notes about the return (optional)"
-                : "Any notes about the deployment (optional)"
-            }
+            placeholder="Add any helpful context"
             value={quickActionForm.note}
             onChange={(event) =>
               setQuickActionForm({ ...quickActionForm, note: event.target.value })

@@ -9,6 +9,9 @@ CABLE_DUPLICATE_ERROR = (
     "Each cable ends+length combination must be unique."
 )
 
+def normalize_cable_end_name(value: str) -> str:
+    return " ".join((value or "").strip().split())
+
 
 def normalize_cable_length(value: str) -> str:
     raw = (value or "").strip()
@@ -23,10 +26,10 @@ def normalize_cable_length(value: str) -> str:
 
 
 def normalize_cable_ends(value: str) -> str:
-    raw = (value or "").strip()
+    raw = normalize_cable_end_name(value)
     if not raw:
         return raw
-    parts = [part.strip() for part in raw.split("-", 1)]
+    parts = [normalize_cable_end_name(part) for part in raw.split("-", 1)]
     if len(parts) < 2:
         return raw
     left, right = parts[0], parts[1]
